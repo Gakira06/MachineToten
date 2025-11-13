@@ -1,68 +1,18 @@
 [
-  {
-    "id": "user_1",
-    "name": "Ana Silva",
-    "historico": [
-      {
-        "id": "order_101",
-        "userId": "user_1",
-        "items": [
-          {
-            "productId": "prod_1",
-            "name": "Pastel de Carne",
-            "quantity": 2,
-            "price": 8.5
-          },
-          {
-            "productId": "prod_4",
-            "name": "Coca-Cola Lata",
-            "quantity": 1,
-            "price": 5
-          }
-        ],
-        "total": 22,
-        "timestamp": "2023-10-26T10:00:00Z",
-        "status": "completed"
-      }
-    ]
-  },
-  {
-    "id": "user_2",
-    "name": "Bruno Costa",
-    "historico": []
-  },
-  {
-    "id": "user_3",
-    "name": "Carla Dias",
-    "historico": [
-      {
-        "id": "order_102",
-        "userId": "user_3",
-        "items": [
-          {
-            "productId": "prod_2",
-            "name": "Pastel de Queijo",
-            "quantity": 1,
-            "price": 8
-          },
-          {
-            "productId": "prod_3",
-            "name": "Pastel de Frango com Catupiry",
-            "quantity": 1,
-            "price": 9
-          }
-        ],
-        "total": 17,
-        "timestamp": "2023-10-25T19:30:00Z",
-        "status": "completed"
-      }
-    ]
-  },
+
   {
     "id": "user_1763064110540",
     "name": "Mateus Saavedra",
     "email": "mateussmcruz@icloud.com",
     "cpf": "40966541839",
+    "historico": [],
+    "pontos": 0
+  },
+  {
+    "id": "user_1763064498146",
+    "name": "Gabriel Akira",
+    "email": "gakira@gmail.com",
+    "cpf": "45383328874",
     "historico": [],
     "pontos": 0
   }
