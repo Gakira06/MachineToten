@@ -1,0 +1,24 @@
+
+[
+  {
+    "id": "order_201",
+    "userId": "user_1",
+    "items": [
+      { "productId": "prod_3", "name": "Pastel de Frango com Catupiry", "quantity": 2, "price": 9.00 },
+      { "productId": "prod_5", "name": "Suco de Laranja Natural", "quantity": 1, "price": 7.00 }
+    ],
+    "total": 25.00,
+    "timestamp": "2023-10-27T12:05:00Z",
+    "status": "active"
+  },
+  {
+    "id": "order_202",
+    "userId": "user_3",
+    "items": [
+      { "productId": "prod_2", "name": "Pastel de Queijo", "quantity": 4, "price": 8.00 }
+    ],
+    "total": 32.00,
+    "timestamp": "2023-10-27T12:10:00Z",
+    "status": "active"
+  }
+]

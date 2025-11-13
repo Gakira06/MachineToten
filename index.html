@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" /> <!-- Define a codificação de caracteres como UTF-8 -->
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" /> <!-- Define o ícone da aba do navegador -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /> <!-- Configura a visualização para dispositivos móveis -->
+    <title>Pastelaria Kiosk Pro</title> <!-- Título da página exibido na aba do navegador -->
+    <script src="https://cdn.tailwindcss.com"></script> <!-- Importa o Tailwind CSS para estilização -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet"> <!-- Importa a fonte Poppins do Google Fonts -->
+    <style>
+      body {
+        font-family: 'Poppins', sans-serif; /* Define a fonte do corpo como Poppins */
+      }
+      @keyframes fade-in-down {
+        0% {
+            opacity: 0; /* Começa invisível */
+            transform: translateY(-20px); /* Move para cima */
+        }
+        100% {
+            opacity: 1; /* Fica visível */
+            transform: translateY(0); /* Retorna à posição original */
+        }
+      }
+      .animate-fade-in-down {
+        animation: fade-in-down 0.5s ease-out forwards; /* Aplica a animação de fade-in para baixo */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0", // Importa a biblioteca React
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/", // Importa o React DOM
+    "react/": "https://aistudiocdn.com/react@^19.2.0/", // Importa React
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1", // Importa a biblioteca GenAI do Google
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.5" // Importa o React Router DOM
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css"> <!-- Importa o arquivo CSS local -->
+</head>
+  <body class="bg-amber-50"> <!-- Define a cor de fundo do corpo -->
+    <div id="root"></div> <!-- Elemento onde a aplicação React será montada -->
+    <script type="module" src="/index.tsx"></script> <!-- Importa o arquivo TypeScript que contém a aplicação React -->
+  </body>
+</html>
