@@ -15,16 +15,34 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Provider que envolve a aplicação e fornece o contexto de autenticação
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   // Estado local que guarda o usuário atual (ou null)
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // Inicializa a partir do localStorage para manter sessão após reload
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const raw = localStorage.getItem('currentUser');
+      return raw ? (JSON.parse(raw) as User) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
   // Função para realizar o login: recebe um usuário e atualiza o estado
   const login = (user: User) => {
     setCurrentUser(user);
+    try {
+      localStorage.setItem('currentUser', JSON.stringify(user));
+    } catch (e) {
+      // ignore
+    }
   };
 
   // Função para realizar logout: simplesmente limpa o usuário
   const logout = () => {
     setCurrentUser(null);
+    try {
+      localStorage.removeItem('currentUser');
+    } catch (e) {
+      // ignore
+    }
   };
 
   // Adiciona um pedido ao histórico do usuário preservando imutabilidade
@@ -33,10 +51,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Se não houver usuário logado, não faz nada (retorna null)
       if (!prevUser) return null;
       // Retorna um novo objeto de usuário com o histórico atualizado (concatena o novo pedido)
-      return {
+      const next = {
         ...prevUser,
         historico: [...prevUser.historico, order],
       };
+      try {
+        localStorage.setItem('currentUser', JSON.stringify(next));
+      } catch (e) {
+        // ignore
+      }
+      return next;
     });
   };
 
