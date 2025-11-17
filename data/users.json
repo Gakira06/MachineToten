@@ -55,5 +55,118 @@
     "cpf": "45233828876",
     "historico": [],
     "pontos": 0
+  },
+  {
+    "id": "user_1763408987948",
+    "name": "Valdir",
+    "email": "valcir@me.com",
+    "cpf": "40966541840",
+    "historico": [
+      {
+        "id": "order_1763409105056",
+        "userId": "user_1763408987948",
+        "userName": "Valdir",
+        "items": [
+          {
+            "productId": "prod_1",
+            "name": "Pastel de Carne",
+            "quantity": 1,
+            "price": 8.5
+          }
+        ],
+        "total": 8.5,
+        "timestamp": "2025-11-17T19:51:45.056Z",
+        "status": "active"
+      },
+      {
+        "id": "order_1763409291635",
+        "userId": "user_1763408987948",
+        "userName": "Valdir",
+        "items": [
+          {
+            "productId": "prod_1",
+            "name": "Pastel de Carne",
+            "quantity": 1,
+            "price": 8.5
+          }
+        ],
+        "total": 8.5,
+        "timestamp": "2025-11-17T19:54:51.635Z",
+        "status": "active"
+      },
+      {
+        "id": "order_1763409479527",
+        "userId": "user_1763408987948",
+        "userName": "Valdir",
+        "items": [
+          {
+            "productId": "prod_1",
+            "name": "Pastel de Carne",
+            "quantity": 1,
+            "price": 8.5
+          },
+          {
+            "productId": "prod_4",
+            "name": "Coca-Cola Lata",
+            "quantity": 1,
+            "price": 5
+          },
+          {
+            "productId": "prod_6",
+            "name": "Pastel de Nutella com Morango",
+            "quantity": 1,
+            "price": 10
+          }
+        ],
+        "total": 23.5,
+        "timestamp": "2025-11-17T19:57:59.527Z",
+        "status": "active"
+      },
+      {
+        "id": "order_1763409513459",
+        "userId": "user_1763408987948",
+        "userName": "Valdir",
+        "items": [
+          {
+            "productId": "prod_1",
+            "name": "Pastel de Carne",
+            "quantity": 6,
+            "price": 8.5
+          },
+          {
+            "productId": "prod_2",
+            "name": "Pastel de Queijo",
+            "quantity": 1,
+            "price": 8
+          },
+          {
+            "productId": "prod_3",
+            "name": "Pastel de Frango",
+            "quantity": 1,
+            "price": 8.5
+          }
+        ],
+        "total": 67.5,
+        "timestamp": "2025-11-17T19:58:33.459Z",
+        "status": "active"
+      },
+      {
+        "id": "order_1763409536265",
+        "userId": "user_1763408987948",
+        "userName": "Valdir",
+        "items": [
+          {
+            "productId": "prod_1",
+            "name": "Pastel de Carne",
+            "quantity": 1,
+            "price": 8.5
+          }
+        ],
+        "total": 8.5,
+        "timestamp": "2025-11-17T19:58:56.265Z",
+        "status": "active"
+      }
+    ],
+    "pontos": 0
   }
 ]

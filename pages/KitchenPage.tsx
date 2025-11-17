@@ -16,6 +16,12 @@ const OrderCard: React.FC<OrderCardProps> = ({ order, onComplete }) => (
       <div>
         {/* Título com número do pedido (mostrando apenas os últimos 6 caracteres) */}
         <h3 className="font-bold text-xl text-stone-800">Pedido #{order.id.slice(-6)}</h3>
+        {/* Exibe o nome do cliente */}
+        {order.userName && (
+          <p className="text-base text-amber-700 font-semibold">
+            Cliente: {order.userName}
+          </p>
+        )}
         {/* Exibe a hora do pedido formatada localmente */}
         <p className="text-sm text-stone-500">
           {new Date(order.timestamp).toLocaleTimeString()}
@@ -74,13 +80,31 @@ const KitchenPage: React.FC = () => {
 
   // Função que marca um pedido como concluído localmente
   const handleCompleteOrder = async (orderId: string) => {
+    console.log('🔄 Marcando pedido como pronto:', orderId);
     try {
+      // Remove do estado imediatamente para feedback instantâneo
+      setActiveOrders(prev => {
+        const filtered = prev.filter(o => o.id !== orderId);
+        console.log('✅ Removido do estado. Pedidos restantes:', filtered.length);
+        return filtered;
+      });
+      
+      // Faz a requisição ao backend
+      console.log('📡 Enviando DELETE para servidor...');
       const resp = await fetch(`http://localhost:3001/api/orders/${orderId}`, { method: 'DELETE' });
-      if (!resp.ok) throw new Error('Falha ao finalizar pedido');
-      // Remove localmente
-      setActiveOrders(prev => prev.filter(o => o.id !== orderId));
+      console.log('📡 Resposta do servidor:', resp.status, resp.ok);
+      
+      if (!resp.ok) {
+        // Se falhar, recarrega os pedidos
+        console.error('❌ Falha ao finalizar pedido no servidor');
+        await fetchOrders();
+      } else {
+        console.log('✅ Pedido finalizado com sucesso no servidor');
+      }
     } catch (err) {
-      console.error(err);
+      console.error('❌ Erro ao finalizar pedido:', err);
+      // Se houver erro, recarrega os pedidos para sincronizar
+      await fetchOrders();
     }
   };
 
