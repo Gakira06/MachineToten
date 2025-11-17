@@ -1,6 +1,4 @@
-
 [
-
   {
     "id": "user_1763064110540",
     "name": "Mateus Saavedra",
@@ -14,6 +12,22 @@
     "name": "Gabriel Akira",
     "email": "gakira@gmail.com",
     "cpf": "45383328874",
+    "historico": [],
+    "pontos": 0
+  },
+  {
+    "id": "user_1763400183218",
+    "name": "Teste Auto",
+    "email": "test@local",
+    "cpf": "11122233344",
+    "historico": [],
+    "pontos": 0
+  },
+  {
+    "id": "user_1763400306967",
+    "name": "Teste",
+    "email": "Teste@gmail.com",
+    "cpf": "45383328872",
     "historico": [],
     "pontos": 0
   }
