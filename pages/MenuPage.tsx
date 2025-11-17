@@ -17,9 +17,10 @@ import USERS_DATA from "../data/users.json";
 interface ProductCardProps {
   product: Product;
   onAddToCart: (product: Product) => void;
+  quantityInCart?: number; // quantidade atual deste produto no carrinho
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => (
+const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, quantityInCart = 0 }) => (
   <div className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300 flex flex-col">
     <video
       className="w-full h-40 object-cover"
@@ -47,12 +48,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart }) => (
         <span className="text-xl font-semibold text-stone-800">
           R${product.price.toFixed(2)}
         </span>
-        <button
-          onClick={() => onAddToCart(product)}
-          className="bg-amber-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-amber-600 transition-colors"
-        >
-          Adicionar
-        </button>
+        <div className="flex items-center gap-2">
+          {quantityInCart > 0 && (
+            <span className="bg-amber-100 text-amber-800 font-bold px-3 py-1 rounded-full text-sm">
+              {quantityInCart} no carrinho
+            </span>
+          )}
+          <button
+            onClick={() => onAddToCart(product)}
+            className="bg-amber-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-amber-600 transition-colors"
+          >
+            Adicionar
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -412,6 +420,7 @@ const MenuPage: React.FC = () => {
                         key={product.id}
                         product={product}
                         onAddToCart={addToCart}
+                        quantityInCart={cartItems.find(item => item.id === product.id)?.quantity || 0}
                       />
                     ))}
                   </div>
@@ -432,6 +441,7 @@ const MenuPage: React.FC = () => {
                     key={product.id}
                     product={product}
                     onAddToCart={addToCart}
+                    quantityInCart={cartItems.find(item => item.id === product.id)?.quantity || 0}
                   />
                 ))}
               </div>
