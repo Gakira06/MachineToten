@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useAuth } from "../contexts/AuthContext";
-import { useCart } from "../contexts/CartContext";
+import { useAuth } from "../frontend/contexts/AuthContext";
+import { useCart } from "../frontend/contexts/CartContext";
 import {
   getMenuSuggestion,
   getDynamicCartSuggestion,
@@ -20,7 +20,11 @@ interface ProductCardProps {
   quantityInCart?: number; // quantidade atual deste produto no carrinho
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, onAddToCart, quantityInCart = 0 }) => (
+const ProductCard: React.FC<ProductCardProps> = ({
+  product,
+  onAddToCart,
+  quantityInCart = 0,
+}) => (
   <div className="bg-white rounded-xl shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300 flex flex-col">
     <video
       className="w-full h-40 object-cover"
@@ -322,7 +326,7 @@ const MenuPage: React.FC = () => {
     const payload = {
       userId: currentUser.id,
       userName: currentUser.name,
-      items: cartItems.map(item => ({
+      items: cartItems.map((item) => ({
         productId: item.id,
         name: item.name,
         quantity: item.quantity,
@@ -332,21 +336,21 @@ const MenuPage: React.FC = () => {
     };
 
     try {
-      const resp = await fetch('http://localhost:3001/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+      const resp = await fetch("http://localhost:3001/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
-      if (!resp.ok) throw new Error('Falha ao enviar pedido');
+      if (!resp.ok) throw new Error("Falha ao enviar pedido");
       const saved: Order = await resp.json();
       // ainda mantemos o histórico local para experiência do usuário
       addOrderToHistory(saved);
-      setOrderConfirmationMessage('Pedido realizado com sucesso!');
+      setOrderConfirmationMessage("Pedido realizado com sucesso!");
       setTimeout(() => setOrderConfirmationMessage(null), 4000);
       clearCart();
     } catch (err) {
       console.error(err);
-      setOrderConfirmationMessage('Erro ao enviar pedido. Tente novamente.');
+      setOrderConfirmationMessage("Erro ao enviar pedido. Tente novamente.");
       setTimeout(() => setOrderConfirmationMessage(null), 5000);
     } finally {
       setIsPlacingOrder(false);
@@ -420,7 +424,10 @@ const MenuPage: React.FC = () => {
                         key={product.id}
                         product={product}
                         onAddToCart={addToCart}
-                        quantityInCart={cartItems.find(item => item.id === product.id)?.quantity || 0}
+                        quantityInCart={
+                          cartItems.find((item) => item.id === product.id)
+                            ?.quantity || 0
+                        }
                       />
                     ))}
                   </div>
@@ -441,7 +448,10 @@ const MenuPage: React.FC = () => {
                     key={product.id}
                     product={product}
                     onAddToCart={addToCart}
-                    quantityInCart={cartItems.find(item => item.id === product.id)?.quantity || 0}
+                    quantityInCart={
+                      cartItems.find((item) => item.id === product.id)
+                        ?.quantity || 0
+                    }
                   />
                 ))}
               </div>

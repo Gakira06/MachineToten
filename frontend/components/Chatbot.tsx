@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { sendMessageToChatbot, startChat } from '../services/geminiService';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { sendMessageToChatbot, startChat } from "../../services/geminiService";
+import { useAuth } from "../contexts/AuthContext";
 
 // Interface que define a estrutura de uma mensagem
 interface Message {
-  sender: 'user' | 'bot'; // Quem enviou: usuário ou bot
+  sender: "user" | "bot"; // Quem enviou: usuário ou bot
   text: string; // Conteúdo da mensagem
 }
 
@@ -15,7 +15,7 @@ const Chatbot: React.FC = () => {
   // Lista de mensagens da conversa
   const [messages, setMessages] = useState<Message[]>([]);
   // Texto digitado pelo usuário no input
-  const [userInput, setUserInput] = useState('');
+  const [userInput, setUserInput] = useState("");
   // Estado para indicar se está aguardando resposta do bot
   const [isLoading, setIsLoading] = useState(false);
   // Obtém o usuário autenticado do contexto
@@ -27,37 +27,40 @@ const Chatbot: React.FC = () => {
   useEffect(() => {
     startChat(); // Inicia a sessão de chat
     // Adiciona mensagem inicial de boas-vindas do bot
-    setMessages([{ sender: 'bot', text: 'Olá! Como posso ajudar você hoje?' }]);
+    setMessages([{ sender: "bot", text: "Olá! Como posso ajudar você hoje?" }]);
   }, []);
-  
+
   // Função para fazer scroll automático até o final das mensagens
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   // Executa scroll sempre que há novas mensagens
   useEffect(scrollToBottom, [messages]);
-  
+
   // Função para enviar mensagem (otimizada com useCallback)
-  const handleSendMessage = useCallback(async (e?: React.FormEvent<HTMLFormElement>) => {
-    e?.preventDefault(); // Previne reload da página
-    // Valida se há texto e não está carregando
-    if (!userInput.trim() || isLoading) return;
+  const handleSendMessage = useCallback(
+    async (e?: React.FormEvent<HTMLFormElement>) => {
+      e?.preventDefault(); // Previne reload da página
+      // Valida se há texto e não está carregando
+      if (!userInput.trim() || isLoading) return;
 
-    // Cria e adiciona mensagem do usuário
-    const userMessage: Message = { sender: 'user', text: userInput };
-    setMessages(prev => [...prev, userMessage]);
-    setUserInput(''); // Limpa o input
-    setIsLoading(true); // Ativa estado de carregamento
+      // Cria e adiciona mensagem do usuário
+      const userMessage: Message = { sender: "user", text: userInput };
+      setMessages((prev) => [...prev, userMessage]);
+      setUserInput(""); // Limpa o input
+      setIsLoading(true); // Ativa estado de carregamento
 
-    // Envia mensagem para o serviço e recebe resposta do bot
-    const botResponse = await sendMessageToChatbot(userInput);
-    
-    // Cria e adiciona resposta do bot
-    const botMessage: Message = { sender: 'bot', text: botResponse };
-    setMessages(prev => [...prev, botMessage]);
-    setIsLoading(false); // Desativa estado de carregamento
-  }, [userInput, isLoading]);
+      // Envia mensagem para o serviço e recebe resposta do bot
+      const botResponse = await sendMessageToChatbot(userInput);
+
+      // Cria e adiciona resposta do bot
+      const botMessage: Message = { sender: "bot", text: botResponse };
+      setMessages((prev) => [...prev, botMessage]);
+      setIsLoading(false); // Desativa estado de carregamento
+    },
+    [userInput, isLoading]
+  );
 
   // Se não há usuário autenticado, não renderiza nada
   if (!currentUser) return null;
@@ -72,7 +75,14 @@ const Chatbot: React.FC = () => {
           aria-label="Open chatbot"
         >
           {/* Ícone de chat */}
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 24 24" fill="currentColor"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8.5z"></path></svg>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-8 w-8"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8.5z"></path>
+          </svg>
         </button>
       </div>
 
@@ -83,18 +93,29 @@ const Chatbot: React.FC = () => {
           <div className="bg-amber-600 text-white p-3 rounded-t-lg">
             <h3 className="font-semibold text-center">Atendente Virtual</h3>
           </div>
-          
+
           {/* Área de mensagens */}
           <div className="flex-1 p-4 overflow-y-auto bg-stone-50">
             {/* Renderiza cada mensagem da conversa */}
             {messages.map((msg, index) => (
-              <div key={index} className={`flex my-2 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`rounded-lg px-3 py-2 max-w-xs shadow ${msg.sender === 'user' ? 'bg-amber-200 text-amber-900' : 'bg-stone-200 text-stone-800'}`}>
+              <div
+                key={index}
+                className={`flex my-2 ${
+                  msg.sender === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div
+                  className={`rounded-lg px-3 py-2 max-w-xs shadow ${
+                    msg.sender === "user"
+                      ? "bg-amber-200 text-amber-900"
+                      : "bg-stone-200 text-stone-800"
+                  }`}
+                >
                   {msg.text}
                 </div>
               </div>
             ))}
-            
+
             {/* Indicador de carregamento (animação de pontos) */}
             {isLoading && (
               <div className="flex justify-start my-2">
@@ -107,11 +128,11 @@ const Chatbot: React.FC = () => {
                 </div>
               </div>
             )}
-            
+
             {/* Referência para scroll automático */}
             <div ref={messagesEndRef} />
           </div>
-          
+
           {/* Formulário de entrada de mensagem */}
           <form onSubmit={handleSendMessage} className="p-2 border-t flex">
             <input
@@ -123,8 +144,25 @@ const Chatbot: React.FC = () => {
               disabled={isLoading} // Desabilita enquanto aguarda resposta
             />
             {/* Botão de envio com ícone de seta */}
-            <button type="submit" className="bg-amber-600 text-white px-4 rounded-r-md hover:bg-amber-700 disabled:bg-amber-300" disabled={isLoading}>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+            <button
+              type="submit"
+              className="bg-amber-600 text-white px-4 rounded-r-md hover:bg-amber-700 disabled:bg-amber-300"
+              disabled={isLoading}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                ></path>
+              </svg>
             </button>
           </form>
         </div>

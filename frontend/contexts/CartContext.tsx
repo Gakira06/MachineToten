@@ -1,5 +1,5 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
-import type { CartItem, Product } from '../types';
+import React, { createContext, useState, useContext, ReactNode } from "react";
+import type { CartItem, Product } from "../types";
 
 /*
   Define o formato do contexto do carrinho.
@@ -27,7 +27,9 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
   Envolve a árvore de componentes que precisa acessar o carrinho.
   Recebe children como propriedade.
 */
-export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const CartProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   // Estado local que guarda os itens do carrinho
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
@@ -38,11 +40,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     Usa a função de atualização baseada no estado anterior para evitar condições de corrida.
   */
   const addToCart = (product: Product) => {
-    setCartItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === product.id);
+    setCartItems((prevItems) => {
+      const existingItem = prevItems.find((item) => item.id === product.id);
       if (existingItem) {
-        return prevItems.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+        return prevItems.map((item) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         );
       }
       return [...prevItems, { ...product, quantity: 1 }];
@@ -54,7 +58,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     Filtra os itens mantendo apenas os que não possuem o id informado.
   */
   const removeFromCart = (productId: string) => {
-    setCartItems(prevItems => prevItems.filter(item => item.id !== productId));
+    setCartItems((prevItems) =>
+      prevItems.filter((item) => item.id !== productId)
+    );
   };
 
   /*
@@ -66,8 +72,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (quantity <= 0) {
       removeFromCart(productId);
     } else {
-      setCartItems(prevItems =>
-        prevItems.map(item =>
+      setCartItems((prevItems) =>
+        prevItems.map((item) =>
           item.id === productId ? { ...item, quantity } : item
         )
       );
@@ -80,12 +86,22 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   // Calcula o total do carrinho somando price * quantity de cada item
-  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  const cartTotal = cartItems.reduce(
+    (total, item) => total + item.price * item.quantity,
+    0
+  );
 
   // Fornece o estado e as funções do carrinho para os componentes filhos
   return (
     <CartContext.Provider
-      value={{ cartItems, addToCart, removeFromCart, updateQuantity, clearCart, cartTotal }}
+      value={{
+        cartItems,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        cartTotal,
+      }}
     >
       {children}
     </CartContext.Provider>
@@ -99,7 +115,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const useCart = (): CartContextType => {
   const context = useContext(CartContext);
   if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
+    throw new Error("useCart must be used within a CartProvider");
   }
   return context;
 };

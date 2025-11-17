@@ -1,18 +1,16 @@
 {
-  "name": "pastelaria-kiosk-pro",
+  "name": "pastelaria-frontend",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "api": "node server.js"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@google/genai": "^1.29.1",
     "@tailwindcss/vite": "^4.1.17",
-    "express": "^4.18.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.9.5",
