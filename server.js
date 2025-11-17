@@ -5,6 +5,8 @@ import path from 'path';
 const app = express();
 const PORT = process.env.PORT || 3001;
 const usersFile = path.join(process.cwd(), 'data', 'users.json');
+const ordersFile = path.join(process.cwd(), 'data', 'orders.json'); // pedidos ativos (cozinha)
+const userOrdersFile = path.join(process.cwd(), 'data', 'user_orders.json'); // histórico por usuário
 
 // Simple CORS and json parsing
 app.use(express.json());
@@ -18,28 +20,32 @@ app.use((req, res, next) => {
   next();
 });
 
-async function readUsers() {
+async function readJson(file) {
   try {
-    const raw = await fs.readFile(usersFile, 'utf-8');
+    const raw = await fs.readFile(file, 'utf-8');
     return JSON.parse(raw);
   } catch (err) {
-    // If file doesn't exist or invalid, return empty array
     return [];
   }
 }
 
-async function writeUsers(users) {
-  console.log(`[writeUsers] Writing ${users.length} users to ${usersFile}`);
+async function writeJson(file, data, label = 'data') {
   try {
-    const content = JSON.stringify(users, null, 2);
-    console.log(`[writeUsers] Serialized to JSON: ${content.length} bytes`);
-    await fs.writeFile(usersFile, content, 'utf-8');
-    console.log(`[writeUsers] File written successfully`);
+    const content = JSON.stringify(data, null, 2);
+    await fs.writeFile(file, content, 'utf-8');
+    console.log(`[writeJson] Wrote ${label} -> ${file} (${content.length} bytes)`);
   } catch (err) {
-    console.error(`[writeUsers] FAILED:`, err.message || err);
+    console.error(`[writeJson] FAILED writing ${label} to ${file}:`, err.message || err);
     throw err;
   }
 }
+
+const readUsers = () => readJson(usersFile);
+const writeUsers = (users) => writeJson(usersFile, users, 'users');
+const readOrders = () => readJson(ordersFile);
+const writeOrders = (orders) => writeJson(ordersFile, orders, 'orders');
+const readUserOrders = () => readJson(userOrdersFile);
+const writeUserOrders = (orders) => writeJson(userOrdersFile, orders, 'userOrders');
 
 app.get('/api/users', async (req, res) => {
   const users = await readUsers();
@@ -95,6 +101,103 @@ app.post('/api/users', async (req, res) => {
     // send detailed error message to help client debug (development only)
     const message = err && err.message ? err.message : 'Failed to save user';
     res.status(500).json({ error: message });
+  }
+});
+
+// ---------------- Pedidos -----------------
+
+// GET pedidos ativos (cozinha)
+app.get('/api/orders', async (req, res) => {
+  const orders = await readOrders();
+  res.json(orders);
+});
+
+// GET histórico de pedidos (opcional filtro ?userId=)
+app.get('/api/user-orders', async (req, res) => {
+  const all = await readUserOrders();
+  const { userId } = req.query;
+  if (userId) {
+    return res.json(all.filter(o => o.userId === userId));
+  }
+  res.json(all);
+});
+
+// POST criar novo pedido
+app.post('/api/orders', async (req, res) => {
+  const payload = req.body;
+  if (!payload || !payload.userId || !Array.isArray(payload.items)) {
+    return res.status(400).json({ error: 'Corpo inválido: userId e items são obrigatórios.' });
+  }
+  try {
+    const orders = await readOrders();
+    const userOrders = await readUserOrders();
+    const users = await readUsers();
+
+    const id = `order_${Date.now()}`;
+    const timestamp = new Date().toISOString();
+    const total = typeof payload.total === 'number'
+      ? payload.total
+      : payload.items.reduce((acc, it) => acc + (it.price * it.quantity), 0);
+    const order = {
+      id,
+      userId: payload.userId,
+      userName: payload.userName || '',
+      items: payload.items.map(it => ({
+        productId: it.productId,
+        name: it.name,
+        quantity: it.quantity,
+        price: it.price,
+      })),
+      total,
+      timestamp,
+      status: 'active'
+    };
+
+    orders.push(order); // adiciona aos pedidos ativos
+    userOrders.push(order); // adiciona ao histórico (mantém status 'active' inicialmente)
+
+    // Atualiza historico do usuário em users.json (se existir)
+    const userIdx = users.findIndex(u => u.id === order.userId);
+    if (userIdx >= 0) {
+      users[userIdx].historico = users[userIdx].historico || [];
+      users[userIdx].historico.push({ ...order });
+    }
+
+    await writeOrders(orders);
+    await writeUserOrders(userOrders);
+    await writeUsers(users);
+
+    res.status(201).json(order);
+  } catch (err) {
+    console.error('Erro ao salvar pedido', err);
+    res.status(500).json({ error: 'Falha ao salvar pedido' });
+  }
+});
+
+// DELETE finalizar pedido (remove de pedidos ativos, mantém no histórico e marca como completed nele)
+app.delete('/api/orders/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const orders = await readOrders();
+    const userOrders = await readUserOrders();
+    const existing = orders.find(o => o.id === id);
+    if (!existing) return res.status(404).json({ error: 'Pedido não encontrado' });
+
+    const remaining = orders.filter(o => o.id !== id);
+    // Marca como completed no histórico (se existir)
+    userOrders.forEach(o => {
+      if (o.id === id) {
+        o.status = 'completed';
+        o.completedAt = new Date().toISOString(); // campo adicional não tipado, mas útil
+      }
+    });
+
+    await writeOrders(remaining);
+    await writeUserOrders(userOrders);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Erro ao finalizar pedido', err);
+    res.status(500).json({ error: 'Falha ao finalizar pedido' });
   }
 });
 

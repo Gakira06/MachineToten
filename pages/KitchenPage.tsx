@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { Order } from '../types';
-import ORDERS_DATA from '../data/orders.json';
 
 // --- Componente auxiliar para exibir um pedido ---
 // Interface que define as props esperadas pelo OrderCard
@@ -54,24 +53,35 @@ const KitchenPage: React.FC = () => {
   // Estado que controla o indicador de carregamento
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-  // Simula uma chamada para buscar pedidos (poderia ser GET /pedidos)
-  setLoading(true);
-  setTimeout(() => {
-    // Filtra apenas pedidos com status 'active' para simular fila de cozinha
-    const orders = (ORDERS_DATA as Order[]).filter(o => o.status === 'active');
-    setActiveOrders(orders);
-    setLoading(false);
-  }, 500); // atraso artificial para demonstrar carregamento
-  // [] garante que esse efeito rode apenas uma vez ao montar o componente
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    try {
+      const resp = await fetch('http://localhost:3001/api/orders');
+      const data: Order[] = await resp.json();
+      setActiveOrders(data.filter(o => o.status === 'active'));
+    } catch (err) {
+      console.error('Erro ao carregar pedidos', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 5000); // polling simples a cada 5s
+    return () => clearInterval(interval);
+  }, [fetchOrders]);
+
   // Função que marca um pedido como concluído localmente
-  const handleCompleteOrder = (orderId: string) => {
-  // Em uma aplicação real, aqui faria uma requisição DELETE/PUT para atualizar o servidor
-  console.log(`Completing order ${orderId}. This would remove it from 'pedidos.json' but not 'usuarios.json'`);
-  // Atualiza o estado removendo o pedido concluído da lista ativa
-  setActiveOrders(prevOrders => prevOrders.filter(order => order.id !== orderId));
+  const handleCompleteOrder = async (orderId: string) => {
+    try {
+      const resp = await fetch(`http://localhost:3001/api/orders/${orderId}`, { method: 'DELETE' });
+      if (!resp.ok) throw new Error('Falha ao finalizar pedido');
+      // Remove localmente
+      setActiveOrders(prev => prev.filter(o => o.id !== orderId));
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (

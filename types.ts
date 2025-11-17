@@ -32,6 +32,8 @@ export interface OrderItem {
 export interface Order {
   id: string;
   userId: string;
+  /** Nome do usuário que realizou o pedido (duplicado para histórico rápido) */
+  userName?: string;
   items: OrderItem[];
   total: number;
   timestamp: string;

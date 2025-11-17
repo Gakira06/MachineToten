@@ -4,7 +4,24 @@
     "name": "Mateus Saavedra",
     "email": "mateussmcruz@icloud.com",
     "cpf": "40966541839",
-    "historico": [],
+    "historico": [
+      {
+        "id": "order_1763408007413",
+        "userId": "user_1763064110540",
+        "userName": "Mateus Saavedra",
+        "items": [
+          {
+            "productId": "prod_1",
+            "name": "Pastel de Carne",
+            "quantity": 1,
+            "price": 8.5
+          }
+        ],
+        "total": 8.5,
+        "timestamp": "2025-11-17T19:33:27.413Z",
+        "status": "active"
+      }
+    ],
     "pontos": 0
   },
   {
@@ -28,6 +45,14 @@
     "name": "Teste",
     "email": "Teste@gmail.com",
     "cpf": "45383328872",
+    "historico": [],
+    "pontos": 0
+  },
+  {
+    "id": "user_1763401421696",
+    "name": "teste2",
+    "email": "teste2@gmail.com",
+    "cpf": "45233828876",
     "historico": [],
     "pontos": 0
   }

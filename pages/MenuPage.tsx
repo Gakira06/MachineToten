@@ -311,32 +311,39 @@ const MenuPage: React.FC = () => {
     if (!currentUser || cartItems.length === 0) return;
     setIsPlacingOrder(true);
 
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    const newOrder: Order = {
-      id: `order_${Date.now()}`,
+    const payload = {
       userId: currentUser.id,
-      items: cartItems.map((item) => ({
+      userName: currentUser.name,
+      items: cartItems.map(item => ({
         productId: item.id,
         name: item.name,
         quantity: item.quantity,
         price: item.price,
       })),
       total: cartTotal,
-      timestamp: new Date().toISOString(),
-      status: "active",
     };
 
-    console.log("Adding to active orders (pedidos.json):", newOrder);
-    console.log("Adding to user history (usuarios.json):", newOrder);
-    addOrderToHistory(newOrder);
-
-    setOrderConfirmationMessage("Pedido realizado com sucesso!");
-    setTimeout(() => setOrderConfirmationMessage(null), 4000);
-
-    clearCart();
-    setIsPlacingOrder(false);
-    setIsMobileCartOpen(false); // fecha drawer mobile após checkout
+    try {
+      const resp = await fetch('http://localhost:3001/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) throw new Error('Falha ao enviar pedido');
+      const saved: Order = await resp.json();
+      // ainda mantemos o histórico local para experiência do usuário
+      addOrderToHistory(saved);
+      setOrderConfirmationMessage('Pedido realizado com sucesso!');
+      setTimeout(() => setOrderConfirmationMessage(null), 4000);
+      clearCart();
+    } catch (err) {
+      console.error(err);
+      setOrderConfirmationMessage('Erro ao enviar pedido. Tente novamente.');
+      setTimeout(() => setOrderConfirmationMessage(null), 5000);
+    } finally {
+      setIsPlacingOrder(false);
+      setIsMobileCartOpen(false);
+    }
   };
 
   const categorizedMenu = useMemo(() => {
