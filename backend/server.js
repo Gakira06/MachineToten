@@ -2,7 +2,7 @@ import express from "express";
 import fs from "fs/promises"; // Mantido para a função de SEED inicial
 import path from "path";
 import cors from "cors";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleAI } from "@google/genai";
 import knex from "knex"; // NOVO: Construtor de consultas SQL
 import "sqlite3"; // NOVO: Driver para SQLite
 
@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3001;
 // --- Configuração da IA (Google Gemini) ---
 // A chave deve estar no arquivo .env do backend como GEMINI_API_KEY
 const genAI = process.env.GEMINI_API_KEY
-  ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+  ? new GoogleAI({ apiKey: process.env.GEMINI_API_KEY })
   : null;
 
 if (!process.env.GEMINI_API_KEY) {
@@ -37,39 +37,48 @@ async function initDatabase() {
     console.log("⏳ Verificando e inicializando tabelas do banco de dados...");
     
     // Tabela de Produtos (substitui menu.json)
-    await db.schema.createTableIfNotExists('products', (table) => {
-        table.string('id').primary();
-        table.string('name').notNullable();
-        table.text('description');
-        table.decimal('price', 8, 2).notNullable(); // Precisão para preço
-        table.string('category').notNullable();
-        table.string('videoUrl');
-        table.boolean('popular').defaultTo(false);
-    });
+    const hasProducts = await db.schema.hasTable('products');
+    if (!hasProducts) {
+        await db.schema.createTable('products', (table) => {
+            table.string('id').primary();
+            table.string('name').notNullable();
+            table.text('description');
+            table.decimal('price', 8, 2).notNullable(); // Precisão para preço
+            table.string('category').notNullable();
+            table.string('videoUrl');
+            table.boolean('popular').defaultTo(false);
+        });
+    }
 
     // Tabela de Usuários (substitui users.json)
-    await db.schema.createTableIfNotExists('users', (table) => {
-        table.string('id').primary();
-        table.string('name').notNullable();
-        table.string('email').unique();
-        table.string('cpf').unique();
-        // O histórico será salvo como uma string JSON no DB
-        table.json('historico').defaultTo('[]'); 
-        table.integer('pontos').defaultTo(0);
-    });
+    const hasUsers = await db.schema.hasTable('users');
+    if (!hasUsers) {
+        await db.schema.createTable('users', (table) => {
+            table.string('id').primary();
+            table.string('name').notNullable();
+            table.string('email').unique();
+            table.string('cpf').unique();
+            // O histórico será salvo como uma string JSON no DB
+            table.json('historico').defaultTo('[]'); 
+            table.integer('pontos').defaultTo(0);
+        });
+    }
 
     // Tabela de Pedidos (substitui orders.json e user_orders.json)
-    await db.schema.createTableIfNotExists('orders', (table) => {
-        table.string('id').primary();
-        table.string('userId').references('id').inTable('users').onDelete('SET NULL');
-        table.string('userName');
-        table.decimal('total', 8, 2).notNullable();
-        table.string('timestamp').notNullable();
-        table.string('status').defaultTo('active');
-        // A lista de itens do pedido é salva como uma string JSON
-        table.json('items').notNullable(); 
-        table.timestamp('completedAt');
-    });
+    const hasOrders = await db.schema.hasTable('orders');
+    if (!hasOrders) {
+        await db.schema.createTable('orders', (table) => {
+            table.string('id').primary();
+            table.string('userId').references('id').inTable('users').onDelete('SET NULL');
+            table.string('userName');
+            table.decimal('total', 8, 2).notNullable();
+            table.string('timestamp').notNullable();
+            table.string('status').defaultTo('active');
+            // A lista de itens do pedido é salva como uma string JSON
+            table.json('items').notNullable(); 
+            table.timestamp('completedAt');
+        });
+    }
 
     // Lógica para carregar dados iniciais do menu.json se a tabela estiver vazia
     const productCount = await db('products').count('id as count').first();
@@ -85,14 +94,6 @@ async function initDatabase() {
              console.error("⚠️ Não foi possível carregar dados do menu.json para o DB. Ignorando seed.", e.message);
         }
     }
-}
-
-// Executa a inicialização do DB antes de continuar
-try {
-    await initDatabase();
-} catch (err) {
-    console.error("❌ ERRO FATAL ao inicializar o banco de dados:", err);
-    process.exit(1);
 }
 
 // --- Middlewares ---
@@ -295,15 +296,23 @@ app.post("/api/ai/suggestion", async (req, res) => {
   if (!prompt) return res.status(400).json({ error: "Prompt é obrigatório" });
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.text();
 
     res.json({ text });
   } catch (error) {
-    console.error("Erro na API Gemini (Sugestão):", error);
-    res.status(500).json({ error: "Erro ao gerar sugestão" });
+    console.error("❌ Erro na API Gemini (Sugestão):");
+    console.error("Mensagem:", error.message);
+    console.error("Stack:", error.stack);
+    if (error.response) {
+      console.error("Response:", error.response);
+    }
+    res.status(500).json({ 
+      error: "Erro ao gerar sugestão",
+      details: error.message 
+    });
   }
 });
 
@@ -320,7 +329,7 @@ app.post("/api/ai/chat", async (req, res) => {
   try {
     // Configura o modelo com uma instrução de sistema clara
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       systemInstruction: `Você é um assistente virtual da 'Pastelaria Kiosk Pro'. 
       Seu tom é amigável, prestativo e brasileiro.
       Responda dúvidas sobre o cardápio (Pastéis, Bebidas, Doces), horários (9h às 22h) e ajude a escolher.
@@ -340,7 +349,16 @@ app.post("/api/ai/chat", async (req, res) => {
 });
 
 // --- Inicialização ---
-app.listen(PORT, () => {
-  console.log(`✅ Servidor rodando na porta ${PORT}`);
-  console.log(`🗄️ Banco de dados SQLite em: ${path.join(process.cwd(), "data", "kiosk.sqlite")}`);
-});
+console.log("🚀 Iniciando servidor...");
+initDatabase()
+  .then(() => {
+    console.log("✅ Banco inicializado com sucesso!");
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`✅ Servidor rodando na porta ${PORT}`);
+      console.log(`🗄️ Banco de dados SQLite em: ${path.join(process.cwd(), "data", "kiosk.sqlite")}`);
+    });
+  })
+  .catch((err) => {
+    console.error("❌ ERRO FATAL ao inicializar o banco de dados:", err);
+    process.exit(1);
+  });

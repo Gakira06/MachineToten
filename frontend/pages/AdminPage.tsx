@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Product } from '../types';
-import MENU_DATA from '@/data/menu.json';
 
 // --- Componente de formulário de produto (Modal) ---
 // Props esperadas pelo formulário:
@@ -110,9 +109,12 @@ const AdminPage: React.FC = () => {
     // Produto atual sendo editado (ou null para criar novo)
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
-    // Carrega os dados iniciais do arquivo JSON (simula GET /cardapio)
+    // Carrega os dados iniciais do backend
     useEffect(() => {
-        setMenu(MENU_DATA as Product[]);
+        fetch('http://localhost:3001/api/menu')
+            .then(res => res.json())
+            .then(data => setMenu(data))
+            .catch(err => console.error('Erro ao carregar cardápio:', err));
     }, []);
 
     // Trata salvar (tanto criação quanto edição)

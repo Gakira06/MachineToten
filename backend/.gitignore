@@ -12,6 +12,11 @@ yarn-error.log*
 .env
 .env.local
 
+# Banco de dados SQLite
+data/kiosk.sqlite
+data/*.sqlite
+data/*.db
+
 # Arquivos de sistema operacional
 .DS_Store
 Thumbs.db

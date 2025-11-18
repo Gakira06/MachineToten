@@ -13,34 +13,47 @@ export const getMenuSuggestion = async (
   menu: Product[],
   userName?: string
 ): Promise<string> => {
-  const clientReference = userName ? `${userName}` : "cliente";
+  const clientName = userName || "amigo(a)";
  
-  // Prepara os dados para o prompt
-  const popularProducts = menu
-    .filter((p) => p.popular)
-    .map((p) => `${p.name} (R$${p.price.toFixed(2)})`)
-    .join(", ");
+  // Analisa o que está no carrinho
+  const cartDetails = cartItems.map((item) => 
+    `${item.quantity}x ${item.name} (${item.category})`
+  ).join(", ");
 
-  const cartText =
-    cartItems.length > 0
-      ? cartItems.map((item) => `${item.quantity}x ${item.name}`).join(", ")
-      : "vazio";
+  const categoriesInCart = new Set(cartItems.map((i) => i.category));
+  const hasSalgado = categoriesInCart.has("Pastel");
+  const hasBebida = categoriesInCart.has("Bebida");
+  const hasDoce = categoriesInCart.has("Doce");
 
-  const historyText =
-    userHistory.length > 0
-      ? `${userHistory.length} pedidos anteriores`
-      : "novo cliente";
+  // Monta contexto inteligente
+  let contexto = "";
+  if (cartItems.length === 0) {
+    contexto = "O carrinho está vazio. Sugira um pastel popular para começar.";
+  } else if (hasSalgado && !hasBebida) {
+    contexto = "Tem pastel no carrinho mas falta bebida. Sugira uma bebida gelada para acompanhar, mencione que está calor ou que combina perfeitamente.";
+  } else if (hasSalgado && !hasDoce) {
+    contexto = "Tem pastel salgado mas falta sobremesa. Sugira um pastel doce (Nutella, Romeu e Julieta, etc) para finalizar com chave de ouro.";
+  } else if (!hasSalgado && hasBebida) {
+    contexto = "Só tem bebida. Sugira um pastel salgado para acompanhar.";
+  } else {
+    contexto = "O carrinho está completo. Elogie a escolha e sugira adicionar mais uma unidade ou experimentar outro sabor.";
+  }
 
-  // Monta o prompt para enviar ao backend
   const prompt = `
-    Aja como um assistente de vendas amigável de uma pastelaria.
-    Cliente: ${clientReference}.
-    Perfil: ${historyText}.
-    Carrinho atual: ${cartText}.
-    Itens populares da loja: ${popularProducts}.
+Você é o Chef da Pastelaria Kiosk Pro. Fale diretamente com ${clientName} de forma calorosa e amigável.
 
-    Tarefa: Crie uma sugestão de venda curta, entusiástica e personalizada (máximo 1 frase).
-    Se o carrinho estiver vazio, sugira um item popular. Se já tiver algo, sugira um acompanhamento (bebida ou sobremesa).
+Carrinho atual: ${cartDetails || "vazio"}
+
+${contexto}
+
+Regras:
+- Use o nome ${clientName} na mensagem
+- Seja específico sobre O QUE recomendar (nome do produto)
+- Dê um MOTIVO convincente (está calor, combina perfeitamente, finalizar com chave de ouro, etc)
+- Máximo 25 palavras
+- Tom brasileiro, caloroso e persuasivo
+
+Exemplo: "${clientName}, que tal uma Coca-Cola geladinha? Vai combinar perfeitamente com esse pastel de carne! 🥤"
   `;
 
   try {
@@ -50,7 +63,11 @@ export const getMenuSuggestion = async (
       body: JSON.stringify({ prompt }),
     }); 
 
-    if (!response.ok) throw new Error("Erro na requisição");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("Erro na API:", response.status, errorData);
+      throw new Error("Erro na requisição");
+    }
 
     const data = await response.json();
     return (
@@ -72,20 +89,41 @@ export const getDynamicCartSuggestion = async (
 ): Promise<string> => {
   if (cartItems.length === 0) return "";
 
-  const clientReference = userName ? `${userName}` : "você";
+  const clientName = userName || "amigo(a)";
   const cartNames = cartItems.map((item) => `${item.quantity}x ${item.name}`).join(", ");
 
-  // Estratégia simples de categorias faltantes
+  // Analisa categorias e produtos específicos
   const categoriesInCart = new Set(cartItems.map((i) => i.category));
-  let focusCategory = "";
-  if (!categoriesInCart.has("Bebida")) focusCategory = "uma bebida gelada";
-  else if (!categoriesInCart.has("Doce")) focusCategory = "uma sobremesa doce";
-  else focusCategory = "mais um sabor de pastel";
+  const productNames = cartItems.map(i => i.name.toLowerCase());
+  
+  let sugestao = "";
+  let motivo = "";
+
+  if (!categoriesInCart.has("Bebida")) {
+    sugestao = "uma Coca-Cola bem gelada ou Suco de Laranja";
+    motivo = "para acompanhar e refrescar";
+  } else if (!categoriesInCart.has("Doce")) {
+    sugestao = "um Pastel de Nutella ou Romeu e Julieta";
+    motivo = "para finalizar com uma doçura especial";
+  } else if (categoriesInCart.size === 1) {
+    sugestao = "mais uma unidade do que você já escolheu";
+    motivo = "aproveitar enquanto está quentinho";
+  } else {
+    sugestao = "outro sabor para experimentar";
+    motivo = "variar o sabor";
+  }
 
   const prompt = `
-    O cliente ${clientReference} tem no carrinho: ${cartNames}.
-    Sugestão para complementar: ${focusCategory}.
-    Gere uma frase curta e tentadora sugerindo adicionar isso ao pedido (máximo 15 palavras).
+Você é o Chef da pastelaria falando com ${clientName}.
+
+Carrinho: ${cartNames}
+
+Sugira adicionar: ${sugestao}
+Motivo: ${motivo}
+
+Crie uma frase curta (máximo 20 palavras), chamando ${clientName} pelo nome, de forma entusiasmada e persuasiva.
+
+Exemplo: "${clientName}, que tal adicionar uma Coca geladinha? Vai combinar perfeitamente! 🥤✨"
   `;
 
   try {
@@ -110,12 +148,24 @@ export const getChefMessage = async (
   userName?: string,
   menu?: Product[]
 ): Promise<string> => {
-  const clientReference = userName ? `${userName}` : "amigo";
+  const clientName = userName || "amigo(a)";
+  const isNewCustomer = !userHistory || userHistory.length === 0;
+  const orderCount = userHistory?.length || 0;
  
   const prompt = `
-    Aja como o Chef da pastelaria. Escreva uma mensagem curta e acolhedora (1 frase) para o cliente ${clientReference}.
-    Se ele for novo, dê boas-vindas. Se for recorrente, diga que é bom vê-lo novamente.
-    Use um tom caseiro e simpático.
+Você é o Chef da Pastelaria Kiosk Pro. 
+
+Cliente: ${clientName}
+Status: ${isNewCustomer ? "Cliente novo, primeira visita" : `Cliente fiel com ${orderCount} pedidos anteriores`}
+
+Crie uma mensagem calorosa e pessoal (máximo 25 palavras):
+- Use o nome ${clientName}
+- Se for novo: dê boas-vindas entusiasmadas
+- Se for recorrente: agradeça a fidelidade e demonstre alegria em vê-lo(a) novamente
+- Tom brasileiro, caloroso como se fosse um amigo
+
+Exemplo novo: "Olá ${clientName}! Seja muito bem-vindo(a)! Nossos pastéis estão quentinhos esperando por você! 🔥😊"
+Exemplo recorrente: "${clientName}, que alegria ter você aqui de novo! Preparei tudo com carinho especial! 💛"
   `;
 
   try {
@@ -128,10 +178,10 @@ export const getChefMessage = async (
     const data = await response.json();
     return (
       data.text ||
-      `Olá ${clientReference}, o Chef preparou tudo com carinho para você!`
+      `Olá ${clientName}, o Chef preparou tudo com carinho para você!`
     );
   } catch (error) {
-    return `Olá ${clientReference}, seja bem-vindo à nossa pastelaria!`;
+    return `Olá ${clientName}, seja bem-vindo à nossa pastelaria!`;
   }
 };
 

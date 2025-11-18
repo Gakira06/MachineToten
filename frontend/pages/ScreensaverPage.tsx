@@ -1,42 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = 'http://localhost:3001';
+// Lista de vídeos disponíveis na pasta public/videos
+const LOCAL_VIDEOS = [
+  '/videos/videoscreensave.mp4',
+];
 
 export default function ScreensaverPage() {
   const navigate = useNavigate();
   const [current, setCurrent] = useState(0);
-  const [videos, setVideos] = useState<string[]>([]);
+  const [videos] = useState<string[]>(LOCAL_VIDEOS);
+  const [videoError, setVideoError] = useState(false);
   const intervalRef = useRef<any>(null);
-
-  // Busca os vídeos do screensaver do backend
-  useEffect(() => {
-    const loadVideos = async () => {
-      try {
-        // Tenta buscar os vídeos do screensaver
-        const screensaverRes = await fetch(`${API_URL}/screensaver`);
-        const screensaverData = await screensaverRes.json();
-        
-        if (Array.isArray(screensaverData) && screensaverData.length > 0) {
-          setVideos(screensaverData.filter(Boolean));
-          return;
-        }
-
-        // Fallback: busca vídeos do menu
-        const menuRes = await fetch(`${API_URL}/menu`);
-        const menuData = await menuRes.json();
-        
-        if (Array.isArray(menuData)) {
-          const menuVideos = menuData.map((item: any) => item.videoUrl).filter(Boolean);
-          setVideos(menuVideos);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar vídeos:', error);
-      }
-    };
-
-    loadVideos();
-  }, []);
 
   useEffect(() => {
     if (videos.length === 0) return;
@@ -57,20 +32,43 @@ export default function ScreensaverPage() {
     return () => window.removeEventListener('click', handleClick);
   }, [navigate]);
 
-  if (videos.length === 0) {
-    return <div className="flex items-center justify-center h-screen text-2xl">Carregando vídeos...</div>;
-  }
+  const handleVideoError = () => {
+    console.error('Erro ao carregar vídeo:', videos[current]);
+    setVideoError(true);
+  };
+
+  const handleVideoLoad = () => {
+    setVideoError(false);
+  };
 
   return (
-    <div className="fixed inset-0 bg-white">
-      <video
-        src={videos[current]}
-        autoPlay
-        loop
-        muted
-        className="w-full h-full"
-        style={{ objectFit: 'cover', background: 'white' }}
-      />
+    <div className="fixed inset-0 bg-gradient-to-br from-amber-50 to-orange-100 flex items-center justify-center">
+      {!videoError && videos.length > 0 ? (
+        <video
+          key={videos[current]}
+          src={videos[current]}
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+          onError={handleVideoError}
+          onLoadedData={handleVideoLoad}
+        />
+      ) : (
+        <div className="text-center p-8">
+          <div className="text-6xl mb-8">🍰</div>
+          <h1 className="text-5xl font-bold text-amber-900 mb-4">
+            Pastelaria Kiosk Pro
+          </h1>
+          <p className="text-2xl text-amber-700 mb-8">
+            Bem-vindo! Toque na tela para começar
+          </p>
+          <div className="animate-bounce text-amber-600 text-xl">
+            👆 Toque aqui
+          </div>
+        </div>
+      )}
     </div>
   );
 }

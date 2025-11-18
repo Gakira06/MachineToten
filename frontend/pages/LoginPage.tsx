@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../frontend/contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import type { User } from "../types";
-import USERS_DATA from "../data/users.json";
 
 // --- Componente WelcomeScreen ---
 interface WelcomeScreenProps {
@@ -109,8 +108,8 @@ const CPFLogin: React.FC<CPFLoginProps> = ({ onBack, onLoginSuccess }) => {
         const list = await res.json();
         setUsers(list as User[]);
       } catch (err) {
-        // fallback to local file when API not available
-        setUsers(USERS_DATA as User[]);
+        console.error('Erro ao carregar usuários:', err);
+        setUsers([]);
       }
     };
 
