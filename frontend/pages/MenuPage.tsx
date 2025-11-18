@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { useAuth } from "../frontend/contexts/AuthContext";
-import { useCart } from "../frontend/contexts/CartContext";
+import { useAuth } from "../contexts/AuthContext"; // Corrigido para caminho relativo
+import { useCart } from "../contexts/CartContext"; // Corrigido para caminho relativo
 import {
   getMenuSuggestion,
   getDynamicCartSuggestion,
   getChefMessage,
 } from "../services/geminiService";
 import type { Product, CartItem, Order } from "../types";
-import MENU_DATA from "../data/menu.json";
-// Dados de pedidos simulados
-import ORDERS_DATA from "../data/orders.json";
-import USERS_DATA from "../data/users.json";
+
+// Usamos uma URL fixa (ou VITE_API_URL, se estiver no service)
+// para a requisição de checkout, garantindo que a URL correta seja usada
+const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 // --- Componentes auxiliares definidos fora para evitar re-renderizações ---
 
@@ -259,12 +259,28 @@ const MenuPage: React.FC = () => {
   const { cartItems, addToCart, clearCart, cartTotal, updateQuantity } =
     useCart();
 
+  // NOVO: Função para buscar o menu do backend (DB)
+  const fetchMenuData = async () => {
+    try {
+      // Nova rota do backend para buscar os produtos no DB
+      const response = await fetch(`${BACKEND_URL}/api/menu`);
+      const data: Product[] = await response.json();
+      setMenu(data);
+    } catch (error) {
+      console.error("Erro ao buscar menu do DB:", error);
+    }
+  };
+
+  // Carrega o menu na montagem do componente
   useEffect(() => {
-    setMenu(MENU_DATA as Product[]);
+    fetchMenuData();
   }, []);
 
+  // UseEffect para Sugestão do Menu (Recomendação IA)
   useEffect(() => {
     const fetchSuggestion = async () => {
+      // O chef message já é feito em outro useEffect, este é para sugestões de venda
+      // A sugestão do menu só faz sentido se o usuário estiver logado ou se for um convidado
       if (currentUser) {
         setIsSuggestionLoading(true);
         const newSuggestion = await getMenuSuggestion(
@@ -273,6 +289,7 @@ const MenuPage: React.FC = () => {
           menu,
           currentUser.name
         );
+        setSuggestion(newSuggestion);
         setIsSuggestionLoading(false);
       }
     };
@@ -282,6 +299,7 @@ const MenuPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cartItems, currentUser, menu]);
 
+  // UseEffect para Mensagem do Chef (Boas-Vindas)
   useEffect(() => {
     const fetchChefMessage = async () => {
       if (menu.length === 0) return;
@@ -303,6 +321,7 @@ const MenuPage: React.FC = () => {
     fetchChefMessage();
   }, [menu, currentUser]);
 
+  // UseEffect para Sugestão Dinâmica do Carrinho (Upsell)
   useEffect(() => {
     const fetchCartSuggestion = async () => {
       if (menu.length > 0 && cartItems.length > 0) {
@@ -317,7 +336,7 @@ const MenuPage: React.FC = () => {
       }
     };
     fetchCartSuggestion();
-  }, [cartItems, menu]);
+  }, [cartItems, menu, currentUser?.name]);
 
   const handleCheckout = async () => {
     if (!currentUser || cartItems.length === 0) return;
@@ -336,15 +355,19 @@ const MenuPage: React.FC = () => {
     };
 
     try {
-      const resp = await fetch("http://localhost:3001/api/orders", {
+      // POST para a nova rota de pedidos do backend (que usa o DB)
+      const resp = await fetch(`${BACKEND_URL}/api/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!resp.ok) throw new Error("Falha ao enviar pedido");
+
       const saved: Order = await resp.json();
-      // ainda mantemos o histórico local para experiência do usuário
+
+      // Atualiza o histórico local (no contexto/localStorage) com a nova order
       addOrderToHistory(saved);
+
       setOrderConfirmationMessage("Pedido realizado com sucesso!");
       setTimeout(() => setOrderConfirmationMessage(null), 4000);
       clearCart();
@@ -358,12 +381,15 @@ const MenuPage: React.FC = () => {
     }
   };
 
+  // Memoiza a lista de produtos categorizados para evitar recalcular a cada render
   const categorizedMenu = useMemo(() => {
     return menu.reduce((acc, product) => {
-      if (!acc[product.category]) {
-        acc[product.category] = [];
+      // Adiciona verificação para garantir que category é um tipo válido
+      const categoryKey = product.category as Product["category"];
+      if (!acc[categoryKey]) {
+        acc[categoryKey] = [];
       }
-      acc[product.category].push(product);
+      acc[categoryKey].push(product);
       return acc;
     }, {} as Record<Product["category"], Product[]>);
   }, [menu]);
@@ -408,6 +434,19 @@ const MenuPage: React.FC = () => {
             )}
           </div>
 
+          {isSuggestionLoading ? (
+            <div className="bg-orange-50 border-l-4 border-orange-400 text-orange-800 p-4 rounded-lg mb-4 shadow">
+              <p className="italic">Gerando sugestão de IA...</p>
+            </div>
+          ) : (
+            suggestion && (
+              <div className="bg-orange-50 border-l-4 border-orange-400 text-orange-800 p-4 rounded-lg mb-4 shadow">
+                <h3 className="font-bold">Sugestão de Venda</h3>
+                <p>{suggestion}</p>
+              </div>
+            )
+          )}
+
           {selectedCategory === null ? (
             // Mostrar todas as categorias
             Object.entries(categorizedMenu).map(
@@ -443,17 +482,19 @@ const MenuPage: React.FC = () => {
                 {selectedCategory === "Doce" && "🍰 Doces"}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                {categorizedMenu[selectedCategory]?.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onAddToCart={addToCart}
-                    quantityInCart={
-                      cartItems.find((item) => item.id === product.id)
-                        ?.quantity || 0
-                    }
-                  />
-                ))}
+                {categorizedMenu[selectedCategory as Product["category"]]?.map(
+                  (product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onAddToCart={addToCart}
+                      quantityInCart={
+                        cartItems.find((item) => item.id === product.id)
+                          ?.quantity || 0
+                      }
+                    />
+                  )
+                )}
               </div>
             </div>
           )}
