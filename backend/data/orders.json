@@ -1,0 +1,18 @@
+[
+  {
+    "id": "order_1763409536265",
+    "userId": "user_1763408987948",
+    "userName": "Valdir",
+    "items": [
+      {
+        "productId": "prod_1",
+        "name": "Pastel de Carne",
+        "quantity": 1,
+        "price": 8.5
+      }
+    ],
+    "total": 8.5,
+    "timestamp": "2025-11-17T19:58:56.265Z",
+    "status": "active"
+  }
+]
