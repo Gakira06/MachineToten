@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { sendMessageToChatbot, startChat } from "../../services/geminiService";
+import { sendMessageToChatbot, startChat } from "../services/geminiService";
 import { useAuth } from "../contexts/AuthContext";
 
 // Interface que define a estrutura de uma mensagem

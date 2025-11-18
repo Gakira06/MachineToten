@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { Product } from '../types';
-import MENU_DATA from '../data/menu.json';
+import MENU_DATA from '@/data/menu.json';
 
 // --- Componente de formulário de produto (Modal) ---
 // Props esperadas pelo formulário:
