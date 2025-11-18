@@ -2,7 +2,7 @@ import express from "express";
 import fs from "fs/promises"; // Mantido para a função de SEED inicial
 import path from "path";
 import cors from "cors";
-import { GoogleAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import knex from "knex"; // NOVO: Construtor de consultas SQL
 import "sqlite3"; // NOVO: Driver para SQLite
 
@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3001;
 // --- Configuração da IA (Google Gemini) ---
 // A chave deve estar no arquivo .env do backend como GEMINI_API_KEY
 const genAI = process.env.GEMINI_API_KEY
-  ? new GoogleAI({ apiKey: process.env.GEMINI_API_KEY })
+  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
   : null;
 
 if (!process.env.GEMINI_API_KEY) {
@@ -296,7 +296,7 @@ app.post("/api/ai/suggestion", async (req, res) => {
   if (!prompt) return res.status(400).json({ error: "Prompt é obrigatório" });
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.text();
@@ -327,17 +327,21 @@ app.post("/api/ai/chat", async (req, res) => {
     return res.status(400).json({ error: "Mensagem é obrigatória" });
 
   try {
-    // Configura o modelo com uma instrução de sistema clara
+    // Configura o modelo
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
-      systemInstruction: `Você é um assistente virtual da 'Pastelaria Kiosk Pro'. 
-      Seu tom é amigável, prestativo e brasileiro.
-      Responda dúvidas sobre o cardápio (Pastéis, Bebidas, Doces), horários (9h às 22h) e ajude a escolher.
-      Não invente preços que não conhece.
-      Seja conciso nas respostas.`,
+      model: "gemini-1.5-pro"
     });
+    
+    // Adiciona contexto diretamente na mensagem
+    const contextMessage = `Você é um assistente virtual da 'Pastelaria Kiosk Pro'. 
+Seu tom é amigável, prestativo e brasileiro.
+Responda dúvidas sobre o cardápio (Pastéis, Bebidas, Doces), horários (9h às 22h) e ajude a escolher.
+Não invente preços que não conhece.
+Seja conciso nas respostas.
 
-    const result = await model.generateContent(message);
+Pergunta do cliente: ${message}`;
+
+    const result = await model.generateContent(contextMessage);
     const response = result.response;
     const text = response.text();
 
