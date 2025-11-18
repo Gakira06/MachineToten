@@ -1,8 +1,10 @@
 import express from "express";
-import fs from "fs/promises";
+import fs from "fs/promises"; // Mantido para a função de SEED inicial
 import path from "path";
 import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
+import knex from "knex"; // NOVO: Construtor de consultas SQL
+import "sqlite3"; // NOVO: Driver para SQLite
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -19,15 +21,84 @@ if (!process.env.GEMINI_API_KEY) {
   );
 }
 
-// --- Caminhos dos Arquivos de Dados ---
-const usersFile = path.join(process.cwd(), "data", "users.json");
-const ordersFile = path.join(process.cwd(), "data", "orders.json"); // Pedidos ativos (cozinha)
-const userOrdersFile = path.join(process.cwd(), "data", "user_orders.json"); // Histórico completo
+// --- CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS (Knex + SQLite) ---
+const db = knex({
+  client: 'sqlite3',
+  connection: {
+    // O arquivo do DB será criado em data/kiosk.sqlite
+    filename: path.join(process.cwd(), "data", "kiosk.sqlite"), 
+  },
+  // Usamos useNullAsDefault para SQLite, Knex recomenda true
+  useNullAsDefault: true, 
+});
+
+// Função para inicializar as tabelas e carregar dados iniciais (SEED)
+async function initDatabase() {
+    console.log("⏳ Verificando e inicializando tabelas do banco de dados...");
+    
+    // Tabela de Produtos (substitui menu.json)
+    await db.schema.createTableIfNotExists('products', (table) => {
+        table.string('id').primary();
+        table.string('name').notNullable();
+        table.text('description');
+        table.decimal('price', 8, 2).notNullable(); // Precisão para preço
+        table.string('category').notNullable();
+        table.string('videoUrl');
+        table.boolean('popular').defaultTo(false);
+    });
+
+    // Tabela de Usuários (substitui users.json)
+    await db.schema.createTableIfNotExists('users', (table) => {
+        table.string('id').primary();
+        table.string('name').notNullable();
+        table.string('email').unique();
+        table.string('cpf').unique();
+        // O histórico será salvo como uma string JSON no DB
+        table.json('historico').defaultTo('[]'); 
+        table.integer('pontos').defaultTo(0);
+    });
+
+    // Tabela de Pedidos (substitui orders.json e user_orders.json)
+    await db.schema.createTableIfNotExists('orders', (table) => {
+        table.string('id').primary();
+        table.string('userId').references('id').inTable('users').onDelete('SET NULL');
+        table.string('userName');
+        table.decimal('total', 8, 2).notNullable();
+        table.string('timestamp').notNullable();
+        table.string('status').defaultTo('active');
+        // A lista de itens do pedido é salva como uma string JSON
+        table.json('items').notNullable(); 
+        table.timestamp('completedAt');
+    });
+
+    // Lógica para carregar dados iniciais do menu.json se a tabela estiver vazia
+    const productCount = await db('products').count('id as count').first();
+    if (productCount && productCount.count === 0) {
+        console.log("🛠️ Carregando dados iniciais do menu.json...");
+        const menuDataPath = path.join(process.cwd(), "data", "menu.json");
+        try {
+             const rawData = await fs.readFile(menuDataPath, "utf-8");
+             const MENU_DATA = JSON.parse(rawData);
+             await db('products').insert(MENU_DATA);
+             console.log("✅ Dados do menu carregados.");
+        } catch (e) {
+             console.error("⚠️ Não foi possível carregar dados do menu.json para o DB. Ignorando seed.", e.message);
+        }
+    }
+}
+
+// Executa a inicialização do DB antes de continuar
+try {
+    await initDatabase();
+} catch (err) {
+    console.error("❌ ERRO FATAL ao inicializar o banco de dados:", err);
+    process.exit(1);
+}
 
 // --- Middlewares ---
 app.use(
   cors({
-    origin: "*", // Em produção, recomenda-se restringir para o domínio do seu frontend
+    origin: "*", 
     methods: ["GET", "POST", "DELETE", "PUT", "OPTIONS"],
   })
 );
@@ -39,31 +110,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- Funções Auxiliares para Arquivos JSON ---
-async function readJson(file) {
-  try {
-    const raw = await fs.readFile(file, "utf-8");
-    return JSON.parse(raw);
-  } catch (err) {
-    // Se o arquivo não existir ou der erro, retorna array vazio
-    return [];
-  }
-}
-
-async function writeJson(file, data) {
-  try {
-    await fs.writeFile(file, JSON.stringify(data, null, 2), "utf-8");
-  } catch (err) {
-    console.error(`Erro ao escrever no arquivo ${file}:`, err);
-    throw err;
-  }
-}
-
 // --- Rota Raiz (Health Check) ---
 app.get("/", (req, res) => {
   res.send(
-    "<h2>Pastelaria Backend Online 🚀</h2><p>Use os endpoints /api/...</p>"
+    "<h2>Pastelaria Backend Online 🚀</h2><p>Usando Knex/SQLite para dados.</p>"
   );
+});
+
+// ==========================================
+// ROTAS DE PRODUTOS (CARDÁPIO)
+// ==========================================
+app.get("/api/menu", async (req, res) => {
+    // Busca todos os produtos e ordena por ID (ou a ordem que você preferir)
+    const products = await db('products').select('*').orderBy('id');
+    res.json(products);
 });
 
 // ==========================================
@@ -71,8 +131,10 @@ app.get("/", (req, res) => {
 // ==========================================
 
 app.get("/api/users", async (req, res) => {
-  const users = await readJson(usersFile);
-  res.json(users);
+  const users = await db('users').select('*');
+  // Converte o histórico de JSON string de volta para array para o frontend
+  const parsedUsers = users.map(u => ({ ...u, historico: JSON.parse(u.historico || '[]') }));
+  res.json(parsedUsers);
 });
 
 app.post("/api/users", async (req, res) => {
@@ -81,13 +143,10 @@ app.post("/api/users", async (req, res) => {
     return res.status(400).json({ error: "CPF é obrigatório" });
   }
 
-  const users = await readJson(usersFile);
   const cpfLimpo = String(payload.cpf).replace(/\D/g, "");
 
-  // Verifica duplicidade
-  const exists = users.find(
-    (u) => String(u.cpf).replace(/\D/g, "") === cpfLimpo
-  );
+  // Verifica duplicidade no DB
+  const exists = await db('users').where({ cpf: cpfLimpo }).first();
   if (exists) {
     return res.status(409).json({ error: "CPF já cadastrado" });
   }
@@ -97,16 +156,16 @@ app.post("/api/users", async (req, res) => {
     name: payload.name || "Sem Nome",
     email: payload.email || "",
     cpf: cpfLimpo,
-    historico: [],
+    historico: JSON.stringify([]), // Salva histórico como JSON string
     pontos: 0,
   };
 
-  users.push(newUser);
-
   try {
-    await writeJson(usersFile, users);
-    res.status(201).json(newUser);
+    await db('users').insert(newUser);
+    // Retorna o objeto com array vazio para o frontend
+    res.status(201).json({ ...newUser, historico: [] }); 
   } catch (err) {
+    console.error("Erro ao salvar usuário no DB:", err);
     res.status(500).json({ error: "Erro ao salvar usuário" });
   }
 });
@@ -117,18 +176,35 @@ app.post("/api/users", async (req, res) => {
 
 // GET Pedidos Ativos (para a tela da Cozinha)
 app.get("/api/orders", async (req, res) => {
-  const orders = await readJson(ordersFile);
-  res.json(orders);
+  const orders = await db('orders').where({ status: 'active' }).select('*').orderBy('timestamp', 'asc');
+  
+  // Converte a string JSON 'items' para objeto e o total para número
+  const parsedOrders = orders.map(o => ({
+      ...o,
+      items: JSON.parse(o.items),
+      total: parseFloat(o.total),
+  }));
+  res.json(parsedOrders);
 });
 
-// GET Histórico de Pedidos (Opcional: filtrar por userId)
+// GET Histórico de Pedidos
 app.get("/api/user-orders", async (req, res) => {
-  const all = await readJson(userOrdersFile);
   const { userId } = req.query;
+  let query = db('orders').orderBy('timestamp', 'desc');
+
   if (userId) {
-    return res.json(all.filter((o) => o.userId === userId));
+    query = query.where({ userId });
   }
-  res.json(all);
+
+  const allOrders = await query.select('*');
+
+  // Converte a string JSON 'items' para objeto e o total para número
+  const parsedOrders = allOrders.map(o => ({
+    ...o,
+    items: JSON.parse(o.items),
+    total: parseFloat(o.total),
+  }));
+  res.json(parsedOrders);
 });
 
 // POST Novo Pedido
@@ -140,93 +216,68 @@ app.post("/api/orders", async (req, res) => {
       .json({ error: "Dados inválidos: userId e items são obrigatórios." });
   }
 
-  try {
-    const orders = await readJson(ordersFile);
-    const userOrders = await readJson(userOrdersFile);
-    const users = await readJson(usersFile);
-
-    const id = `order_${Date.now()}`;
-    const total =
+  const id = `order_${Date.now()}`;
+  const total =
       typeof payload.total === "number"
         ? payload.total
         : payload.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
 
-    const newOrder = {
-      id,
-      userId: payload.userId,
-      userName: payload.userName || "",
-      items: payload.items,
-      total,
-      timestamp: new Date().toISOString(),
-      status: "active",
-    };
+  const newOrder = {
+    id,
+    userId: payload.userId,
+    userName: payload.userName || "",
+    items: JSON.stringify(payload.items), // Salva como JSON string
+    total,
+    timestamp: new Date().toISOString(),
+    status: "active",
+  };
 
-    // 1. Adiciona na lista de pedidos ativos (Cozinha)
-    orders.push(newOrder);
+  try {
+    // Transação para garantir que a inserção e atualização ocorram juntas
+    await db.transaction(async (trx) => {
+      // 1. Adiciona na tabela de pedidos
+      await trx('orders').insert(newOrder);
 
-    // 2. Adiciona no histórico geral de pedidos
-    userOrders.push(newOrder);
+      // 2. Atualiza o histórico dentro do objeto do usuário
+      const user = await trx('users').where({ id: payload.userId }).first();
+      if (user) {
+        let historico = JSON.parse(user.historico || '[]');
+        // Cria um objeto de pedido compatível com o histórico (items como array)
+        historico.push({ ...newOrder, items: payload.items, total }); 
+        await trx('users').where({ id: payload.userId }).update({ historico: JSON.stringify(historico) });
+      }
+    });
 
-    // 3. Atualiza o histórico dentro do objeto do usuário
-    const userIdx = users.findIndex((u) => u.id === newOrder.userId);
-    if (userIdx >= 0) {
-      users[userIdx].historico = users[userIdx].historico || [];
-      users[userIdx].historico.push({ ...newOrder });
-    }
-
-    // Salva todos os arquivos
-    await Promise.all([
-      writeJson(ordersFile, orders),
-      writeJson(userOrdersFile, userOrders),
-      writeJson(usersFile, users),
-    ]);
-
-    res.status(201).json(newOrder);
+    // Retorna o objeto com items como array para o frontend
+    res.status(201).json({ ...newOrder, items: payload.items, total });
   } catch (err) {
-    console.error("Erro ao processar pedido:", err);
+    console.error("Erro ao processar pedido no DB:", err);
     res.status(500).json({ error: "Falha ao salvar pedido" });
   }
 });
 
-// DELETE Finalizar Pedido (Remove da cozinha, marca como completo no histórico)
+// DELETE Finalizar Pedido (Marca como 'completed' no DB)
 app.delete("/api/orders/:id", async (req, res) => {
   const { id } = req.params;
+  const completedAt = new Date().toISOString();
   try {
-    const orders = await readJson(ordersFile);
-    const userOrders = await readJson(userOrdersFile);
-
-    // Remove dos ativos
-    const novosPedidosAtivos = orders.filter((o) => o.id !== id);
-
-    // Atualiza status no histórico
-    let pedidoEncontrado = false;
-    const novoHistorico = userOrders.map((o) => {
-      if (o.id === id) {
-        pedidoEncontrado = true;
-        return {
-          ...o,
-          status: "completed",
-          completedAt: new Date().toISOString(),
-        };
-      }
-      return o;
+    // Atualiza o status do pedido
+    const updated = await db('orders').where({ id }).update({
+      status: "completed",
+      completedAt,
     });
 
-    if (!pedidoEncontrado && orders.length === novosPedidosAtivos.length) {
+    if (updated === 0) {
       return res.status(404).json({ error: "Pedido não encontrado" });
     }
 
-    await Promise.all([
-      writeJson(ordersFile, novosPedidosAtivos),
-      writeJson(userOrdersFile, novoHistorico),
-    ]);
-
     res.json({ ok: true });
   } catch (err) {
-    console.error("Erro ao finalizar pedido:", err);
+    console.error("Erro ao finalizar pedido no DB:", err);
     res.status(500).json({ error: "Falha ao finalizar pedido" });
   }
 });
+
 
 // ==========================================
 // ROTAS DE INTELIGÊNCIA ARTIFICIAL (GEMINI)
@@ -291,5 +342,5 @@ app.post("/api/ai/chat", async (req, res) => {
 // --- Inicialização ---
 app.listen(PORT, () => {
   console.log(`✅ Servidor rodando na porta ${PORT}`);
-  console.log(`📂 Arquivos de dados em: ${path.join(process.cwd(), "data")}`);
+  console.log(`🗄️ Banco de dados SQLite em: ${path.join(process.cwd(), "data", "kiosk.sqlite")}`);
 });
