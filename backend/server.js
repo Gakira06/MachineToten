@@ -1,142 +1,145 @@
 import express from "express";
-import fs from "fs/promises"; // Mantido para a função de SEED inicial
+import fs from "fs/promises";
 import path from "path";
 import cors from "cors";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import knex from "knex"; // NOVO: Construtor de consultas SQL
-import "sqlite3"; // NOVO: Driver para SQLite
+import OpenAI from "openai"; // MUDANÇA: Usando OpenAI agora
+import knex from "knex";
+import "sqlite3";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// --- Configuração da IA (Google Gemini) ---
-// A chave deve estar no arquivo .env do backend como GEMINI_API_KEY
-const genAI = process.env.GEMINI_API_KEY
-  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+// --- Configuração da IA (OpenAI) ---
+// A chave deve estar no arquivo .env do backend como OPENAI_API_KEY
+const openai = process.env.OPENAI_API_KEY
+  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
-if (!process.env.GEMINI_API_KEY) {
+if (!process.env.OPENAI_API_KEY) {
   console.warn(
-    "⚠️ AVISO: A variável GEMINI_API_KEY não foi definida. As funcionalidades de IA não funcionarão."
+    "⚠️ AVISO: A variável OPENAI_API_KEY não foi definida. As funcionalidades de IA não funcionarão."
   );
 } else {
-  console.log("✅ API Key do Gemini carregada (primeiros 10 caracteres):", process.env.GEMINI_API_KEY.substring(0, 10) + "...");
+  console.log("✅ OpenAI (GPT-4o-mini) configurada com sucesso.");
 }
 
 // --- CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS (Knex + SQLite) ---
 const db = knex({
-  client: 'sqlite3',
+  client: "sqlite3",
   connection: {
-    // O arquivo do DB será criado em data/kiosk.sqlite
-    filename: path.join(process.cwd(), "data", "kiosk.sqlite"), 
+    filename: path.join(process.cwd(), "data", "kiosk.sqlite"),
   },
-  // Usamos useNullAsDefault para SQLite, Knex recomenda true
-  useNullAsDefault: true, 
+  useNullAsDefault: true,
 });
 
 // Função para inicializar as tabelas e carregar dados iniciais (SEED)
 async function initDatabase() {
-    console.log("⏳ Verificando e inicializando tabelas do banco de dados...");
-    
-    // Tabela de Produtos (substitui menu.json)
-    const hasProducts = await db.schema.hasTable('products');
-    if (!hasProducts) {
-        await db.schema.createTable('products', (table) => {
-            table.string('id').primary();
-            table.string('name').notNullable();
-            table.text('description');
-            table.decimal('price', 8, 2).notNullable(); // Precisão para preço
-            table.string('category').notNullable();
-            table.string('videoUrl');
-            table.boolean('popular').defaultTo(false);
-        });
-    }
+  console.log("⏳ Verificando e inicializando tabelas do banco de dados...");
 
-    // Tabela de Usuários (substitui users.json)
-    const hasUsers = await db.schema.hasTable('users');
-    if (!hasUsers) {
-        await db.schema.createTable('users', (table) => {
-            table.string('id').primary();
-            table.string('name').notNullable();
-            table.string('email').unique();
-            table.string('cpf').unique();
-            // O histórico será salvo como uma string JSON no DB
-            table.json('historico').defaultTo('[]'); 
-            table.integer('pontos').defaultTo(0);
-        });
-    }
+  // Tabela de Produtos
+  const hasProducts = await db.schema.hasTable("products");
+  if (!hasProducts) {
+    await db.schema.createTable("products", (table) => {
+      table.string("id").primary();
+      table.string("name").notNullable();
+      table.text("description");
+      table.decimal("price", 8, 2).notNullable();
+      table.string("category").notNullable();
+      table.string("videoUrl");
+      table.boolean("popular").defaultTo(false);
+    });
+  }
 
-    // Tabela de Pedidos (substitui orders.json e user_orders.json)
-    const hasOrders = await db.schema.hasTable('orders');
-    if (!hasOrders) {
-        await db.schema.createTable('orders', (table) => {
-            table.string('id').primary();
-            table.string('userId').references('id').inTable('users').onDelete('SET NULL');
-            table.string('userName');
-            table.decimal('total', 8, 2).notNullable();
-            table.string('timestamp').notNullable();
-            table.string('status').defaultTo('active');
-            // A lista de itens do pedido é salva como uma string JSON
-            table.json('items').notNullable(); 
-            table.timestamp('completedAt');
-        });
-    }
+  // Tabela de Usuários
+  const hasUsers = await db.schema.hasTable("users");
+  if (!hasUsers) {
+    await db.schema.createTable("users", (table) => {
+      table.string("id").primary();
+      table.string("name").notNullable();
+      table.string("email").unique();
+      table.string("cpf").unique();
+      table.json("historico").defaultTo("[]");
+      table.integer("pontos").defaultTo(0);
+    });
+  }
 
-    // Lógica para carregar dados iniciais do menu.json se a tabela estiver vazia
-    const productCount = await db('products').count('id as count').first();
-    if (productCount && productCount.count === 0) {
-        console.log("🛠️ Carregando dados iniciais do menu.json...");
-        const menuDataPath = path.join(process.cwd(), "data", "menu.json");
-        try {
-             const rawData = await fs.readFile(menuDataPath, "utf-8");
-             const MENU_DATA = JSON.parse(rawData);
-             await db('products').insert(MENU_DATA);
-             console.log("✅ Dados do menu carregados.");
-        } catch (e) {
-             console.error("⚠️ Não foi possível carregar dados do menu.json para o DB. Ignorando seed.", e.message);
-        }
+  // Tabela de Pedidos
+  const hasOrders = await db.schema.hasTable("orders");
+  if (!hasOrders) {
+    await db.schema.createTable("orders", (table) => {
+      table.string("id").primary();
+      table
+        .string("userId")
+        .references("id")
+        .inTable("users")
+        .onDelete("SET NULL");
+      table.string("userName");
+      table.decimal("total", 8, 2).notNullable();
+      table.string("timestamp").notNullable();
+      table.string("status").defaultTo("active");
+      table.json("items").notNullable();
+      table.timestamp("completedAt");
+    });
+  }
+
+  // Carregar menu.json se necessário
+  const productCount = await db("products").count("id as count").first();
+  if (productCount && productCount.count === 0) {
+    console.log("🛠️ Carregando dados iniciais do menu.json...");
+    const menuDataPath = path.join(process.cwd(), "data", "menu.json");
+    try {
+      const rawData = await fs.readFile(menuDataPath, "utf-8");
+      const MENU_DATA = JSON.parse(rawData);
+      await db("products").insert(MENU_DATA);
+      console.log("✅ Dados do menu carregados.");
+    } catch (e) {
+      console.error(
+        "⚠️ Não foi possível carregar dados do menu.json. Ignorando seed.",
+        e.message
+      );
     }
+  }
 }
 
 // --- Middlewares ---
 app.use(
   cors({
-    origin: "*", 
+    origin: "*",
     methods: ["GET", "POST", "DELETE", "PUT", "OPTIONS"],
   })
 );
 app.use(express.json());
 
-// Log de requisições para debug
+// Log de requisições
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// --- Rota Raiz (Health Check) ---
+// --- Rota Raiz ---
 app.get("/", (req, res) => {
   res.send(
-    "<h2>Pastelaria Backend Online 🚀</h2><p>Usando Knex/SQLite para dados.</p>"
+    "<h2>Pastelaria Backend Online (OpenAI) 🚀</h2><p>Usando Knex/SQLite para dados.</p>"
   );
 });
 
 // ==========================================
-// ROTAS DE PRODUTOS (CARDÁPIO)
+// ROTAS DE PRODUTOS
 // ==========================================
 app.get("/api/menu", async (req, res) => {
-    // Busca todos os produtos e ordena por ID (ou a ordem que você preferir)
-    const products = await db('products').select('*').orderBy('id');
-    res.json(products);
+  const products = await db("products").select("*").orderBy("id");
+  res.json(products);
 });
 
 // ==========================================
 // ROTAS DE USUÁRIOS
 // ==========================================
-
 app.get("/api/users", async (req, res) => {
-  const users = await db('users').select('*');
-  // Converte o histórico de JSON string de volta para array para o frontend
-  const parsedUsers = users.map(u => ({ ...u, historico: JSON.parse(u.historico || '[]') }));
+  const users = await db("users").select("*");
+  const parsedUsers = users.map((u) => ({
+    ...u,
+    historico: JSON.parse(u.historico || "[]"),
+  }));
   res.json(parsedUsers);
 });
 
@@ -147,9 +150,7 @@ app.post("/api/users", async (req, res) => {
   }
 
   const cpfLimpo = String(payload.cpf).replace(/\D/g, "");
-
-  // Verifica duplicidade no DB
-  const exists = await db('users').where({ cpf: cpfLimpo }).first();
+  const exists = await db("users").where({ cpf: cpfLimpo }).first();
   if (exists) {
     return res.status(409).json({ error: "CPF já cadastrado" });
   }
@@ -159,14 +160,13 @@ app.post("/api/users", async (req, res) => {
     name: payload.name || "Sem Nome",
     email: payload.email || "",
     cpf: cpfLimpo,
-    historico: JSON.stringify([]), // Salva histórico como JSON string
+    historico: JSON.stringify([]),
     pontos: 0,
   };
 
   try {
-    await db('users').insert(newUser);
-    // Retorna o objeto com array vazio para o frontend
-    res.status(201).json({ ...newUser, historico: [] }); 
+    await db("users").insert(newUser);
+    res.status(201).json({ ...newUser, historico: [] });
   } catch (err) {
     console.error("Erro ao salvar usuário no DB:", err);
     res.status(500).json({ error: "Erro ao salvar usuário" });
@@ -174,35 +174,14 @@ app.post("/api/users", async (req, res) => {
 });
 
 // ==========================================
-// ROTAS DE PEDIDOS (COZINHA & HISTÓRICO)
+// ROTAS DE PEDIDOS
 // ==========================================
-
-// GET Pedidos Ativos (para a tela da Cozinha)
 app.get("/api/orders", async (req, res) => {
-  const orders = await db('orders').where({ status: 'active' }).select('*').orderBy('timestamp', 'asc');
-  
-  // Converte a string JSON 'items' para objeto e o total para número
-  const parsedOrders = orders.map(o => ({
-      ...o,
-      items: JSON.parse(o.items),
-      total: parseFloat(o.total),
-  }));
-  res.json(parsedOrders);
-});
-
-// GET Histórico de Pedidos
-app.get("/api/user-orders", async (req, res) => {
-  const { userId } = req.query;
-  let query = db('orders').orderBy('timestamp', 'desc');
-
-  if (userId) {
-    query = query.where({ userId });
-  }
-
-  const allOrders = await query.select('*');
-
-  // Converte a string JSON 'items' para objeto e o total para número
-  const parsedOrders = allOrders.map(o => ({
+  const orders = await db("orders")
+    .where({ status: "active" })
+    .select("*")
+    .orderBy("timestamp", "asc");
+  const parsedOrders = orders.map((o) => ({
     ...o,
     items: JSON.parse(o.items),
     total: parseFloat(o.total),
@@ -210,7 +189,21 @@ app.get("/api/user-orders", async (req, res) => {
   res.json(parsedOrders);
 });
 
-// POST Novo Pedido
+app.get("/api/user-orders", async (req, res) => {
+  const { userId } = req.query;
+  let query = db("orders").orderBy("timestamp", "desc");
+  if (userId) {
+    query = query.where({ userId });
+  }
+  const allOrders = await query.select("*");
+  const parsedOrders = allOrders.map((o) => ({
+    ...o,
+    items: JSON.parse(o.items),
+    total: parseFloat(o.total),
+  }));
+  res.json(parsedOrders);
+});
+
 app.post("/api/orders", async (req, res) => {
   const payload = req.body;
   if (!payload || !payload.userId || !Array.isArray(payload.items)) {
@@ -221,37 +214,32 @@ app.post("/api/orders", async (req, res) => {
 
   const id = `order_${Date.now()}`;
   const total =
-      typeof payload.total === "number"
-        ? payload.total
-        : payload.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
+    typeof payload.total === "number"
+      ? payload.total
+      : payload.items.reduce((acc, it) => acc + it.price * it.quantity, 0);
 
   const newOrder = {
     id,
     userId: payload.userId,
     userName: payload.userName || "",
-    items: JSON.stringify(payload.items), // Salva como JSON string
+    items: JSON.stringify(payload.items),
     total,
     timestamp: new Date().toISOString(),
     status: "active",
   };
 
   try {
-    // Transação para garantir que a inserção e atualização ocorram juntas
     await db.transaction(async (trx) => {
-      // 1. Adiciona na tabela de pedidos
-      await trx('orders').insert(newOrder);
-
-      // 2. Atualiza o histórico dentro do objeto do usuário
-      const user = await trx('users').where({ id: payload.userId }).first();
+      await trx("orders").insert(newOrder);
+      const user = await trx("users").where({ id: payload.userId }).first();
       if (user) {
-        let historico = JSON.parse(user.historico || '[]');
-        // Cria um objeto de pedido compatível com o histórico (items como array)
-        historico.push({ ...newOrder, items: payload.items, total }); 
-        await trx('users').where({ id: payload.userId }).update({ historico: JSON.stringify(historico) });
+        let historico = JSON.parse(user.historico || "[]");
+        historico.push({ ...newOrder, items: payload.items, total });
+        await trx("users")
+          .where({ id: payload.userId })
+          .update({ historico: JSON.stringify(historico) });
       }
     });
-
-    // Retorna o objeto com items como array para o frontend
     res.status(201).json({ ...newOrder, items: payload.items, total });
   } catch (err) {
     console.error("Erro ao processar pedido no DB:", err);
@@ -259,68 +247,67 @@ app.post("/api/orders", async (req, res) => {
   }
 });
 
-// DELETE Finalizar Pedido (Marca como 'completed' no DB)
 app.delete("/api/orders/:id", async (req, res) => {
   const { id } = req.params;
   const completedAt = new Date().toISOString();
   try {
-    // Atualiza o status do pedido
-    const updated = await db('orders').where({ id }).update({
+    const updated = await db("orders").where({ id }).update({
       status: "completed",
       completedAt,
     });
-
-    if (updated === 0) {
+    if (updated === 0)
       return res.status(404).json({ error: "Pedido não encontrado" });
-    }
-
     res.json({ ok: true });
   } catch (err) {
-    console.error("Erro ao finalizar pedido no DB:", err);
+    console.error("Erro ao finalizar pedido:", err);
     res.status(500).json({ error: "Falha ao finalizar pedido" });
   }
 });
 
-
 // ==========================================
-// ROTAS DE INTELIGÊNCIA ARTIFICIAL (GEMINI)
+// ROTAS DE INTELIGÊNCIA ARTIFICIAL (OPENAI)
 // ==========================================
 
 // Sugestão de Cardápio e Upsell
 app.post("/api/ai/suggestion", async (req, res) => {
-  if (!genAI) {
-    return res
-      .status(503)
-      .json({ error: "Serviço de IA indisponível (Chave não configurada)" });
+  if (!openai) {
+    return res.status(503).json({ error: "Serviço de IA indisponível" });
   }
 
   const { prompt } = req.body;
   if (!prompt) return res.status(400).json({ error: "Prompt é obrigatório" });
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
+    // Chamada para OpenAI (GPT-4o-mini)
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini", // Modelo rápido e barato
+      messages: [
+        {
+          role: "system",
+          content:
+            "Você é um Chef de Pastelaria especialista em vendas. Responda apenas o texto da sugestão.",
+        },
+        { role: "user", content: prompt },
+      ],
+      max_tokens: 100, // Limita resposta para ser rápido
+      temperature: 0.7, // Criatividade média
+    });
 
+    const text = completion.choices[0].message.content;
     res.json({ text });
   } catch (error) {
-    console.error("❌ Erro na API Gemini (Sugestão):");
-    console.error("Mensagem:", error.message);
-    console.error("Stack:", error.stack);
-    if (error.response) {
-      console.error("Response:", error.response);
-    }
-    res.status(500).json({ 
-      error: "Erro ao gerar sugestão",
-      details: error.message 
+    console.error("❌ Erro na OpenAI (Sugestão):", error);
+
+    // FALLBACK: Se a IA falhar, não trava o toten. Retorna uma sugestão padrão.
+    res.status(200).json({
+      text: "Que tal adicionar um delicioso caldo de cana geladinho?",
     });
   }
 });
 
 // Chatbot
 app.post("/api/ai/chat", async (req, res) => {
-  if (!genAI) {
+  if (!openai) {
     return res.status(503).json({ error: "Serviço de IA indisponível" });
   }
 
@@ -329,28 +316,28 @@ app.post("/api/ai/chat", async (req, res) => {
     return res.status(400).json({ error: "Mensagem é obrigatória" });
 
   try {
-    // Configura o modelo
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash"
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `Você é o Chef da 'Pastelaria Kiosk Pro'. 
+            Seu tom é amigável, prestativo e brasileiro.
+            Responda dúvidas sobre o cardápio e ajude a escolher.
+            Seja curto e objetivo (máximo 2 frases).`,
+        },
+        { role: "user", content: message },
+      ],
+      max_tokens: 150,
     });
-    
-    // Adiciona contexto diretamente na mensagem
-    const contextMessage = `Você é um assistente virtual da 'Pastelaria Kiosk Pro'. 
-Seu tom é amigável, prestativo e brasileiro.
-Responda dúvidas sobre o cardápio (Pastéis, Bebidas, Doces), horários (9h às 22h) e ajude a escolher.
-Não invente preços que não conhece.
-Seja conciso nas respostas.
 
-Pergunta do cliente: ${message}`;
-
-    const result = await model.generateContent(contextMessage);
-    const response = result.response;
-    const text = response.text();
-
+    const text = completion.choices[0].message.content;
     res.json({ text });
   } catch (error) {
-    console.error("Erro na API Gemini (Chat):", error);
-    res.status(500).json({ error: "Erro ao processar mensagem" });
+    console.error("Erro na OpenAI (Chat):", error);
+    res
+      .status(500)
+      .json({ error: "O Chef está ocupado na cozinha (erro de conexão)." });
   }
 });
 
@@ -361,7 +348,13 @@ initDatabase()
     console.log("✅ Banco inicializado com sucesso!");
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`✅ Servidor rodando na porta ${PORT}`);
-      console.log(`🗄️ Banco de dados SQLite em: ${path.join(process.cwd(), "data", "kiosk.sqlite")}`);
+      console.log(
+        `🗄️ Banco de dados SQLite em: ${path.join(
+          process.cwd(),
+          "data",
+          "kiosk.sqlite"
+        )}`
+      );
     });
   })
   .catch((err) => {
