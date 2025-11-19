@@ -40,6 +40,8 @@ export interface Order {
   status: "active" | "completed";
 }
 
+export type UserRole = "customer" | "kitchen" | "admin";
+
 export interface User {
   id: string;
   name: string;
@@ -48,6 +50,7 @@ export interface User {
   telefone?: string;
   historico: Order[];
   pontos?: number;
+  role?: UserRole; // Tipo de usuário: customer (padrão), kitchen ou admin
 }
 
 export interface CartItem extends Product {

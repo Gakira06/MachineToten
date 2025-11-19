@@ -427,11 +427,9 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Verificar se já tem nome armazenado
-    const storedName = localStorage.getItem("guestUserName");
-    if (storedName) {
-      setGuestUserName(storedName);
-    }
+    // Sempre limpar o nome quando entrar na página de login
+    localStorage.removeItem("guestUserName");
+    setGuestUserName(null);
   }, []);
 
   // Se já estiver logado, navegar automaticamente para /menu
@@ -464,6 +462,7 @@ const LoginPage: React.FC = () => {
       id: `guest_${Date.now()}`,
       name: guestUserName || "Convidado",
       historico: [],
+      role: "customer",
     };
 
     // Seta o usuário como logado (mesmo que seja convidado) para permitir o acesso às rotas protegidas

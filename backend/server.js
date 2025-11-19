@@ -19,6 +19,8 @@ if (!process.env.GEMINI_API_KEY) {
   console.warn(
     "⚠️ AVISO: A variável GEMINI_API_KEY não foi definida. As funcionalidades de IA não funcionarão."
   );
+} else {
+  console.log("✅ API Key do Gemini carregada (primeiros 10 caracteres):", process.env.GEMINI_API_KEY.substring(0, 10) + "...");
 }
 
 // --- CONFIGURAÇÃO E CONEXÃO COM O BANCO DE DADOS (Knex + SQLite) ---
@@ -296,7 +298,7 @@ app.post("/api/ai/suggestion", async (req, res) => {
   if (!prompt) return res.status(400).json({ error: "Prompt é obrigatório" });
 
   try {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const result = await model.generateContent(prompt);
     const response = result.response;
     const text = response.text();
@@ -329,7 +331,7 @@ app.post("/api/ai/chat", async (req, res) => {
   try {
     // Configura o modelo
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-pro"
+      model: "gemini-1.5-flash"
     });
     
     // Adiciona contexto diretamente na mensagem

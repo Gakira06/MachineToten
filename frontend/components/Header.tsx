@@ -40,12 +40,23 @@ const Header: React.FC = () => {
           
           {/* Navegação - visível apenas em telas médias e maiores */}
           <nav className="hidden md:flex items-center space-x-6">
-            {/* Mostra links apenas se o usuário está autenticado */}
-            {currentUser && (
+            {/* Mostra links apenas para usuários clientes (não cozinha/admin) */}
+            {currentUser && (!currentUser.role || currentUser.role === "customer") && (
               <>
                 <NavLink to="/menu" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Cardápio</NavLink>
-                <NavLink to="/kitchen" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Cozinha</NavLink>
-                <NavLink to="/admin" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Admin</NavLink>
+              </>
+            )}
+            {/* Links especiais para cozinha - só aparece se for usuário cozinha */}
+            {currentUser && currentUser.role === "kitchen" && (
+              <>
+                <NavLink to="/cozinha" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Pedidos</NavLink>
+              </>
+            )}
+            {/* Links especiais para admin - só aparece se for usuário admin */}
+            {currentUser && currentUser.role === "admin" && (
+              <>
+                <NavLink to="/admin" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Painel Admin</NavLink>
+                <NavLink to="/admin/reports" style={({ isActive }) => isActive ? activeLinkStyle : undefined} className="text-stone-600 hover:text-amber-600 transition-colors">Recomendações IA</NavLink>
               </>
             )}
           </nav>

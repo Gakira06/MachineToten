@@ -11,20 +11,51 @@ import { CartProvider } from "./contexts/CartContext";
 import LoginPage from "./pages/LoginPage";
 import MenuPage from "./pages/MenuPage";
 import KitchenPage from "./pages/KitchenPage";
+import KitchenLoginPage from "./pages/KitchenLoginPage";
 import AdminPage from "./pages/AdminPage";
+import AdminLoginPage from "./pages/AdminLoginPage";
+import AdminReportsPage from "./pages/AdminReportsPage";
 import ScreensaverPage from "./pages/ScreensaverPage";
 import Header from "./components/Header";
 import Chatbot from "./components/Chatbot";
 import InactivityGuard from "./components/InactivityGuard";
+import type { UserRole } from "./types";
 
-// A wrapper to protect routes that require authentication
+// Proteção de rota para clientes (customer)
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { currentUser } = useAuth();
   if (!currentUser) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
+  // Se for kitchen ou admin, redirecionar para suas respectivas páginas
+  if (currentUser.role === "kitchen") {
+    return <Navigate to="/cozinha" replace />;
+  }
+  if (currentUser.role === "admin") {
+    return <Navigate to="/admin" replace />;
+  }
+  return <>{children}</>;
+};
+
+// Proteção de rota por role específico
+const RoleProtectedRoute: React.FC<{
+  children: React.ReactNode;
+  allowedRoles: UserRole[];
+  redirectTo?: string;
+}> = ({ children, allowedRoles, redirectTo = "/login" }) => {
+  const { currentUser } = useAuth();
+  
+  if (!currentUser) {
+    return <Navigate to={redirectTo} replace />;
+  }
+  
+  const userRole = currentUser.role || "customer";
+  if (!allowedRoles.includes(userRole)) {
+    return <Navigate to={redirectTo} replace />;
+  }
+  
   return <>{children}</>;
 };
 
@@ -52,6 +83,8 @@ const RouterBody: React.FC = () => {
         <Routes>
           <Route path="/" element={<ScreensaverPage />} />
           <Route path="/login" element={<LoginPage />} />
+          
+          {/* Rota protegida para clientes */}
           <Route
             path="/menu"
             element={
@@ -60,20 +93,47 @@ const RouterBody: React.FC = () => {
               </ProtectedRoute>
             }
           />
+          
+          {/* Rotas de login especiais (sem botão, só por URL) */}
+          <Route path="/cozinha/login" element={<KitchenLoginPage />} />
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          
+          {/* Rota protegida para cozinha */}
           <Route
-            path="/kitchen"
+            path="/cozinha"
             element={
-              <ProtectedRoute>
+              <RoleProtectedRoute 
+                allowedRoles={["kitchen"]} 
+                redirectTo="/cozinha/login"
+              >
                 <KitchenPage />
-              </ProtectedRoute>
+              </RoleProtectedRoute>
             }
           />
+          
+          {/* Rota protegida para admin */}
           <Route
             path="/admin"
             element={
-              <ProtectedRoute>
+              <RoleProtectedRoute 
+                allowedRoles={["admin"]} 
+                redirectTo="/admin/login"
+              >
                 <AdminPage />
-              </ProtectedRoute>
+              </RoleProtectedRoute>
+            }
+          />
+          
+          {/* Rota protegida para relatórios do admin */}
+          <Route
+            path="/admin/reports"
+            element={
+              <RoleProtectedRoute 
+                allowedRoles={["admin"]} 
+                redirectTo="/admin/login"
+              >
+                <AdminReportsPage />
+              </RoleProtectedRoute>
             }
           />
         </Routes>
